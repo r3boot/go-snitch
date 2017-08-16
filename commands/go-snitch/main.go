@@ -42,7 +42,7 @@ func main() {
 		case p := <-packets:
 			request, err := snitch.GetConnRequest(p.Packet)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v", err)
+				fmt.Fprintf(os.Stderr, "Failed to get packet details: %v\n", err)
 			}
 
 			verdict, err := rulecache.GetVerdict(request)
