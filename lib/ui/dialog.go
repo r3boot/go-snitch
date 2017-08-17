@@ -28,13 +28,30 @@ func getIANAName(proto, port string) string {
 
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
-		value := reLine.FindString(scanner.Text())
-		if value != "" {
-			return value
+		value := reLine.FindStringSubmatch(scanner.Text())
+		if len(value) > 0 {
+			return value[0]
 		}
 	}
 
 	return result
+}
+
+func newAlignedLabel(label *gtk.Label) *gtk.Alignment {
+	labelAlign := gtk.NewAlignment(0, 0, 0, 0)
+	label.SetJustify(gtk.JUSTIFY_LEFT)
+	label.SetPadding(10, 0)
+	labelAlign.Add(label)
+	return labelAlign
+}
+
+func newButton(label string, f func(), hotkey uint, ag *gtk.AccelGroup) *gtk.Button {
+	button := gtk.NewButtonWithLabel(label)
+	button.Clicked(f)
+	if ag != nil {
+		button.AddAccelerator("activate", ag, hotkey, gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	}
+	return button
 }
 
 func NewDialogWindow() *DialogWindow {
@@ -46,62 +63,86 @@ func NewDialogWindow() *DialogWindow {
 }
 
 func (dw *DialogWindow) Create() {
-	dw.window = gtk.NewWindow(gtk.WINDOW_POPUP)
+	dw.window = gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
+	dw.window.SetModal(true)
 	dw.window.SetPosition(gtk.WIN_POS_CENTER)
-	dw.window.SetTitle("Hello")
+	dw.window.SetTitle("New connection request")
 	dw.window.SetIconName("gtk-dialog-info")
 	dw.window.Connect("destroy", dw.GtkDestroy, "quit")
+	dw.window.SetSizeRequest(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+	accelGroup := gtk.NewAccelGroup()
+	dw.window.AddAccelGroup(accelGroup)
 
 	vbox := gtk.NewVBox(false, 1)
 
 	dw.labelHeader = gtk.NewLabel("UNSET")
+	dw.labelHeader.SetPadding(50, 10)
 	vbox.Add(dw.labelHeader)
 
-	separator := gtk.NewHSeparator()
-	vbox.Add(separator)
+	topSeparator := gtk.NewHSeparator()
+	vbox.Add(topSeparator)
 
-	dw.labelBody = gtk.NewLabel("UNSET")
-	dw.labelBody.SetLineWrap(true)
-	vbox.Add(dw.labelBody)
+	additionalHBox := gtk.NewHBox(false, 1)
 
-	comboHBox := gtk.NewHBox(false, 1)
+	labelVBox := gtk.NewVBox(false, 1)
+	labelVBox.Add(newAlignedLabel(gtk.NewLabel("App:")))
+	labelVBox.Add(newAlignedLabel(gtk.NewLabel("Ip:")))
+	labelVBox.Add(newAlignedLabel(gtk.NewLabel("Port:")))
+	labelVBox.Add(newAlignedLabel(gtk.NewLabel("Pid:")))
+	labelVBox.Add(newAlignedLabel(gtk.NewLabel("User:")))
+	additionalHBox.PackStart(labelVBox, false, false, 0)
 
+	detailVBox := gtk.NewVBox(false, 1)
+	dw.labelCmdline = gtk.NewLabel("UNSET")
+	dw.labelIp = gtk.NewLabel("UNSET")
+	dw.labelPort = gtk.NewLabel("UNSET")
+	dw.labelPid = gtk.NewLabel("UNSET")
+	dw.labelUser = gtk.NewLabel("UNSET")
+
+	detailVBox.Add(newAlignedLabel(dw.labelCmdline))
+	detailVBox.Add(newAlignedLabel(dw.labelIp))
+	detailVBox.Add(newAlignedLabel(dw.labelPort))
+	detailVBox.Add(newAlignedLabel(dw.labelPid))
+	detailVBox.Add(newAlignedLabel(dw.labelUser))
+
+	additionalHBox.PackStart(detailVBox, false, false, 0)
+
+	vbox.Add(additionalHBox)
+
+	bottomSeparator := gtk.NewHSeparator()
+	vbox.Add(bottomSeparator)
+
+	comboHBox := gtk.NewHBox(true, 1)
+	comboHBox.SetBorderWidth(10)
+
+	labelActionAlign := gtk.NewAlignment(0, 0, 0, 10)
 	labelAction := gtk.NewLabel("Take this action")
-	comboHBox.Add(labelAction)
+	labelAction.SetJustify(gtk.JUSTIFY_LEFT)
+	labelActionAlign.Add(labelAction)
+	comboHBox.PackStart(labelActionAlign, false, true, 0)
 
 	dw.actioncombo = gtk.NewComboBoxText()
 	dw.actioncombo.AppendText("Once")
 	dw.actioncombo.AppendText("Until Quit")
 	dw.actioncombo.AppendText("Forever")
-	dw.actioncombo.SetActive(0)
+	dw.actioncombo.SetActive(1)
 	dw.actioncombo.Connect("changed", dw.ActionChanged)
-	comboHBox.Add(dw.actioncombo)
+	comboHBox.PackStart(dw.actioncombo, true, true, 0)
 
 	vbox.Add(comboHBox)
 
 	buttonHBox := gtk.NewHBox(false, 1)
 
-	buttonWhitelist := gtk.NewButtonWithLabel("Whitelist app")
-	buttonWhitelist.Clicked(dw.Whitelist)
-	buttonHBox.Add(buttonWhitelist)
-
-	buttonBlock := gtk.NewButtonWithLabel("Block app")
-	buttonBlock.Clicked(dw.Block)
-	buttonHBox.Add(buttonBlock)
-
-	buttonDeny := gtk.NewButtonWithLabel("Deny")
-	buttonDeny.Clicked(dw.Deny)
-	buttonHBox.Add(buttonDeny)
-
-	buttonAllow := gtk.NewButtonWithLabel("Allow")
-	buttonAllow.Clicked(dw.Allow)
-	buttonHBox.Add(buttonAllow)
-	buttonHBox.ShowAll()
+	buttonHBox.SetBorderWidth(10)
+	buttonHBox.Add(newButton("Whitelist app", dw.Whitelist, 'w', accelGroup))
+	buttonHBox.Add(newButton("Block app", dw.Block, 'b', accelGroup))
+	buttonHBox.Add(newButton("Deny", dw.Deny, 'd', accelGroup))
+	buttonHBox.Add(newButton("Allow", dw.Allow, 'a', accelGroup))
 
 	vbox.Add(buttonHBox)
 
 	dw.window.Add(vbox)
-	dw.window.SetSizeRequest(WINDOW_WIDTH, WINDOW_HEIGHT)
 }
 
 func (dw *DialogWindow) GtkDestroy(ctx *glib.CallbackContext) {
@@ -150,11 +191,24 @@ func (dw *DialogWindow) Allow() {
 }
 
 func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
-	appname := path.Base(strings.Split(r.Cmdline, " ")[0])
-	dw.labelHeader.SetText(appname)
+	appname := fmt.Sprintf("<b>%s</b>", path.Base(strings.Split(r.Command, " ")[0]))
+	portName := getIANAName(strings.ToLower(r.Proto), r.DstPort)
 
-	portName := getIANAName("tcp", r.DstPort)
+	port := fmt.Sprintf("%s/%s", r.Proto, r.DstPort)
+	if portName != "" {
+		port = fmt.Sprintf("%s (%s)", port, portName)
+	}
 
-	body := fmt.Sprintf("%s (pid=%s, user=%s) wants to connect to %s on %s port %s (%s)", r.Cmdline, r.Pid, r.User, r.DstIp, "tcp", r.DstPort, portName)
-	dw.labelBody.SetText(body)
+	cmdline := r.Cmdline
+	if len(cmdline) > 44 {
+		cmdline = cmdline[:41] + "..."
+	}
+
+	dw.labelHeader.SetMarkup(appname)
+	dw.labelCmdline.SetText(cmdline)
+	dw.labelIp.SetText(r.DstIp)
+	dw.labelPort.SetText(port)
+	dw.labelPid.SetText(r.Pid)
+	dw.labelUser.SetText(r.User)
+
 }

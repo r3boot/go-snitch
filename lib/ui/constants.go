@@ -5,14 +5,19 @@ import (
 )
 
 const (
-	WINDOW_WIDTH  int = 400
-	WINDOW_HEIGHT int = 200
+	WINDOW_WIDTH  int = 450
+	WINDOW_HEIGHT int = 300
 )
 
 type DialogWindow struct {
-	window      *gtk.Window
-	actioncombo *gtk.ComboBoxText
-	labelHeader *gtk.Label
-	labelBody   *gtk.Label
-	Verdict     chan int
+	window        *gtk.Window
+	actioncombo   *gtk.ComboBoxText
+	labelHeader   *gtk.Label
+	labelCmdline  *gtk.Label
+	labelIp       *gtk.Label
+	labelPort     *gtk.Label
+	labelPid      *gtk.Label
+	labelUser     *gtk.Label
+	labelPortName *gtk.Label
+	Verdict       chan int
 }
