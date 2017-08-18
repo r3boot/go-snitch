@@ -2,11 +2,14 @@ package ui
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/glib"
@@ -30,7 +33,7 @@ func getIANAName(proto, port string) string {
 	for scanner.Scan() {
 		value := reLine.FindStringSubmatch(scanner.Text())
 		if len(value) > 0 {
-			return value[0]
+			return value[1]
 		}
 	}
 
@@ -191,12 +194,22 @@ func (dw *DialogWindow) Allow() {
 }
 
 func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
-	appname := fmt.Sprintf("<b>%s</b>", path.Base(strings.Split(r.Command, " ")[0]))
+	appname := fmt.Sprintf("<b>%s wants to connect to the network</b>", path.Base(strings.Split(r.Command, " ")[0]))
 	portName := getIANAName(strings.ToLower(r.Proto), r.DstPort)
 
 	port := fmt.Sprintf("%s/%s", r.Proto, r.DstPort)
 	if portName != "" {
 		port = fmt.Sprintf("%s (%s)", port, portName)
+	}
+
+	destip := r.DstIp
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	names, err := net.DefaultResolver.LookupAddr(ctx, r.DstIp)
+	defer cancel()
+
+	if err == nil && len(names) > 0 {
+		destip = names[0][:len(names[0])-1]
 	}
 
 	cmdline := r.Cmdline
@@ -206,7 +219,7 @@ func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
 
 	dw.labelHeader.SetMarkup(appname)
 	dw.labelCmdline.SetText(cmdline)
-	dw.labelIp.SetText(r.DstIp)
+	dw.labelIp.SetText(destip)
 	dw.labelPort.SetText(port)
 	dw.labelPid.SetText(r.Pid)
 	dw.labelUser.SetText(r.User)

@@ -58,7 +58,7 @@ func GetConnRequest(packet gopacket.Packet) (r ConnRequest, err error) {
 		srcport = strings.Split(tcpHeader.SrcPort.String(), "(")[0]
 		dstport = strings.Split(tcpHeader.DstPort.String(), "(")[0]
 		isTCP = true
-		proto = "TCP"
+		proto = "tcp"
 	} else {
 		protoHeader = packet.Layer(layers.LayerTypeUDP)
 		if protoHeader != nil {
@@ -66,7 +66,7 @@ func GetConnRequest(packet gopacket.Packet) (r ConnRequest, err error) {
 			srcport = strings.Split(udpHeader.SrcPort.String(), "(")[0]
 			dstport = strings.Split(udpHeader.DstPort.String(), "(")[0]
 			isUDP = true
-			proto = "UDP"
+			proto = "udp"
 		}
 	}
 
