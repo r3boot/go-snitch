@@ -7,3 +7,5 @@
 - Add application to manage existing ruleset
 - Fix ipv6 detection on tap interface
 - Add notification area icon to manage ui
+- Write documentation
+- Add configuration possibilities
