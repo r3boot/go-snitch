@@ -172,12 +172,38 @@ func (dw *DialogWindow) ActionChanged() {
 }
 
 func (dw *DialogWindow) Whitelist() {
-	fmt.Println("Whitelist clicked")
+	switch dw.actioncombo.GetActive() {
+	case ACTION_ONCE:
+		{
+			dw.Verdict <- snitch.ACCEPT_APP_ONCE
+		}
+	case ACTION_SESSION:
+		{
+			dw.Verdict <- snitch.ACCEPT_APP_SESSION
+		}
+	case ACTION_ALWAYS:
+		{
+			dw.Verdict <- snitch.ACCEPT_APP_ALWAYS
+		}
+	}
 	dw.Hide()
 }
 
 func (dw *DialogWindow) Block() {
-	fmt.Println("Block clicked")
+	switch dw.actioncombo.GetActive() {
+	case ACTION_ONCE:
+		{
+			dw.Verdict <- snitch.DROP_APP_ONCE
+		}
+	case ACTION_SESSION:
+		{
+			dw.Verdict <- snitch.DROP_APP_SESSION
+		}
+	case ACTION_ALWAYS:
+		{
+			dw.Verdict <- snitch.DROP_APP_ALWAYS
+		}
+	}
 	dw.Hide()
 }
 
@@ -252,4 +278,5 @@ func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
 	dw.labelPid.SetText(r.Pid)
 	dw.labelUser.SetText(r.User)
 
+	dw.actioncombo.SetActive(ACTION_SESSION)
 }

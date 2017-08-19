@@ -36,17 +36,25 @@ func GetConnRequest(packet gopacket.Packet) (r ConnRequest, err error) {
 
 	ipLayer = packet.Layer(layers.LayerTypeIPv4)
 	ip4Header, _ = ipLayer.(*layers.IPv4)
-	if ip4Header != nil {
+	if ip4Header != nil && ip4Header.Version == 4 {
+		fmt.Printf("Is ipv4\n")
 		srcip = ip4Header.SrcIP
 		dstip = ip4Header.DstIP
 		isIPv4 = true
 	} else { // IPv6
+		fmt.Printf("Is ipv6\n")
 		ipLayer = packet.Layer(layers.LayerTypeIPv6)
 		ip6Header, _ = ipLayer.(*layers.IPv6)
-		srcip = ip6Header.SrcIP
-		dstip = ip6Header.DstIP
-		isIPv6 = true
+		if ip6Header != nil && ip6Header.Version == 6 {
+			srcip = ip6Header.SrcIP
+			dstip = ip6Header.DstIP
+			isIPv6 = true
+		} else {
+			return ConnRequest{}, fmt.Errorf("Failed to parse IP header: %v\n", packet)
+		}
 	}
+
+	fmt.Printf("here\n")
 
 	srcport = "0"
 	dstport = "0"

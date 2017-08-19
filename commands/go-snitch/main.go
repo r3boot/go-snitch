@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	_ "net"
 	"os"
-	_ "os/signal"
-	_ "syscall"
+	"os/signal"
+	"syscall"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 
 	"github.com/r3boot/go-snitch/lib/dbus"
+	"github.com/r3boot/go-snitch/lib/kernel"
 	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/snitch"
 )
@@ -37,8 +37,27 @@ func main() {
 
 	rulecache := rules.NewRuleCache("./rules.db")
 
+	filter := kernel.NewNetfilter("/usr/bin/iptables", "/usr/bin/ip6tables")
+	filter.SetupRules()
+
+	signals := make(chan os.Signal, 1)
+	signalsCompleted := make(chan bool, 1)
+
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-signals
+		fmt.Printf("Received signal, exiting...\n")
+		filter.CleanupRules()
+		signalsCompleted <- true
+	}()
+
 	for true {
 		select {
+		case <-signalsCompleted:
+			{
+				os.Exit(0)
+			}
 		case p := <-packets:
 			request, err := snitch.GetConnRequest(p.Packet)
 			if err != nil {
@@ -81,6 +100,24 @@ func main() {
 					rulecache.AddConnRule(request, netfilter.NF_ACCEPT)
 				}
 			case snitch.ACCEPT_CONN_ONCE, snitch.ACCEPT_CONN_SESSION:
+				{
+					verdict = netfilter.NF_ACCEPT
+				}
+			case snitch.DROP_APP_ALWAYS:
+				{
+					verdict = netfilter.NF_DROP
+					rulecache.AddAppRule(request, netfilter.NF_DROP)
+				}
+			case snitch.DROP_APP_ONCE, snitch.DROP_APP_SESSION:
+				{
+					verdict = netfilter.NF_DROP
+				}
+			case snitch.ACCEPT_APP_ALWAYS:
+				{
+					verdict = netfilter.NF_ACCEPT
+					rulecache.AddAppRule(request, netfilter.NF_ACCEPT)
+				}
+			case snitch.ACCEPT_APP_ONCE, snitch.ACCEPT_APP_SESSION:
 				{
 					verdict = netfilter.NF_ACCEPT
 				}
