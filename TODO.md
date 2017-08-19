@@ -1,7 +1,9 @@
 - Fix Dropping, unexpectedly due to no recv, idx=2548154674
-- Add iptables rules for DNS lookups
 - Make sure daemon works w/o the dialog connected to dbus
 - Fix Failed to get packet details: readlink /proc/-/exe: no such file or directory
 - Fix ipv6 (Failed to get packet details: readlink /proc//exe: no such file or directory, no pid found??)
 - Close dialog window after tcp-timeout seconds (120)
 - Rework GetConnRequest to properly detect ipv6 packets over tap interfaces
+- Add application to manage existing ruleset
+- Fix ipv6 detection on tap interface
+- Add notification area icon to manage ui

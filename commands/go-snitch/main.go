@@ -40,16 +40,36 @@ func main() {
 	filter := kernel.NewNetfilter("/usr/bin/iptables", "/usr/bin/ip6tables")
 	filter.SetupRules()
 
-	signals := make(chan os.Signal, 1)
+	exitSignal := make(chan os.Signal, 1)
+	hupSignal := make(chan os.Signal, 1)
+	stopHupHandler := make(chan bool, 1)
 	signalsCompleted := make(chan bool, 1)
 
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
+	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-signals
+		<-exitSignal
 		fmt.Printf("Received signal, exiting...\n")
 		filter.CleanupRules()
 		signalsCompleted <- true
+	}()
+
+	signal.Notify(hupSignal, syscall.SIGHUP)
+	go func() {
+		runHandler := true
+		for runHandler {
+			select {
+			case <-stopHupHandler:
+				{
+					runHandler = false
+				}
+			case <-hupSignal:
+				{
+					fmt.Printf("Reloading ...\n")
+					filter.RemoveResolvers()
+					filter.AllowResolvers()
+				}
+			}
+		}
 	}()
 
 	for true {

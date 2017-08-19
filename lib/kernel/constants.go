@@ -20,4 +20,5 @@ const (
 	RE_EVENT_EXIT      string = " pid=(\\d+)"
 	EV_EXEC            string = "exec"
 	EV_EXIT            string = "exit"
+	MAX_RESOLVERS      int    = 16
 )
