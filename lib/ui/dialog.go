@@ -116,24 +116,42 @@ func (dw *DialogWindow) Create() {
 	bottomSeparator := gtk.NewHSeparator()
 	vbox.Add(bottomSeparator)
 
-	comboHBox := gtk.NewHBox(true, 1)
-	comboHBox.SetBorderWidth(10)
+	comboVBox := gtk.NewVBox(true, 1)
+	comboVBox.SetBorderWidth(10)
+
+	comboActionHBox := gtk.NewHBox(true, 1)
 
 	labelActionAlign := gtk.NewAlignment(0, 0, 0, 10)
 	labelAction := gtk.NewLabel("Take this action")
 	labelAction.SetJustify(gtk.JUSTIFY_LEFT)
 	labelActionAlign.Add(labelAction)
-	comboHBox.PackStart(labelActionAlign, false, true, 0)
+	comboActionHBox.PackStart(labelActionAlign, false, true, 0)
 
 	dw.actioncombo = gtk.NewComboBoxText()
 	dw.actioncombo.AppendText(actionOptions[ACTION_ONCE])
 	dw.actioncombo.AppendText(actionOptions[ACTION_SESSION])
 	dw.actioncombo.AppendText(actionOptions[ACTION_ALWAYS])
-	dw.actioncombo.SetActive(1)
-	dw.actioncombo.Connect("changed", dw.ActionChanged)
-	comboHBox.PackStart(dw.actioncombo, true, true, 0)
+	dw.actioncombo.SetActive(ACTION_SESSION)
+	comboActionHBox.PackStart(dw.actioncombo, true, true, 0)
 
-	vbox.Add(comboHBox)
+	comboVBox.Add(comboActionHBox)
+
+	comboApplyToHBox := gtk.NewHBox(true, 1)
+
+	labelApplyToAlign := gtk.NewAlignment(0, 0, 0, 10)
+	labelApplyTo := gtk.NewLabel("Apply this rule")
+	labelApplyTo.SetJustify(gtk.JUSTIFY_LEFT)
+	labelApplyToAlign.Add(labelApplyTo)
+	comboApplyToHBox.PackStart(labelApplyToAlign, false, true, 0)
+
+	dw.applycombo = gtk.NewComboBoxText()
+	dw.applycombo.AppendText(applyOptions[APPLY_USER])
+	dw.applycombo.AppendText(applyOptions[APPLY_SYSTEM])
+	dw.applycombo.SetActive(APPLY_USER)
+	comboApplyToHBox.PackStart(dw.applycombo, true, true, 0)
+
+	comboVBox.Add(comboApplyToHBox)
+	vbox.Add(comboVBox)
 
 	buttonHBox := gtk.NewHBox(false, 1)
 
@@ -172,76 +190,164 @@ func (dw *DialogWindow) ActionChanged() {
 }
 
 func (dw *DialogWindow) Whitelist() {
-	switch dw.actioncombo.GetActive() {
-	case ACTION_ONCE:
+	switch dw.applycombo.GetActive() {
+	case APPLY_USER:
 		{
-			dw.Verdict <- snitch.ACCEPT_APP_ONCE
+			switch dw.actioncombo.GetActive() {
+			case ACTION_ONCE:
+				{
+					dw.Verdict <- snitch.ACCEPT_APP_ONCE_USER
+				}
+			case ACTION_SESSION:
+				{
+					dw.Verdict <- snitch.ACCEPT_APP_SESSION_USER
+				}
+			case ACTION_ALWAYS:
+				{
+					dw.Verdict <- snitch.ACCEPT_APP_ALWAYS_USER
+				}
+			}
 		}
-	case ACTION_SESSION:
+	case APPLY_SYSTEM:
 		{
-			dw.Verdict <- snitch.ACCEPT_APP_SESSION
-		}
-	case ACTION_ALWAYS:
-		{
-			dw.Verdict <- snitch.ACCEPT_APP_ALWAYS
+			switch dw.actioncombo.GetActive() {
+			case ACTION_ONCE:
+				{
+					dw.Verdict <- snitch.ACCEPT_APP_ONCE_SYSTEM
+				}
+			case ACTION_SESSION:
+				{
+					dw.Verdict <- snitch.ACCEPT_APP_SESSION_SYSTEM
+				}
+			case ACTION_ALWAYS:
+				{
+					dw.Verdict <- snitch.ACCEPT_APP_ALWAYS_SYSTEM
+				}
+			}
 		}
 	}
 	dw.Hide()
 }
 
 func (dw *DialogWindow) Block() {
-	switch dw.actioncombo.GetActive() {
-	case ACTION_ONCE:
+	switch dw.applycombo.GetActive() {
+	case APPLY_USER:
 		{
-			dw.Verdict <- snitch.DROP_APP_ONCE
+			switch dw.actioncombo.GetActive() {
+			case ACTION_ONCE:
+				{
+					dw.Verdict <- snitch.DROP_APP_ONCE_USER
+				}
+			case ACTION_SESSION:
+				{
+					dw.Verdict <- snitch.DROP_APP_SESSION_USER
+				}
+			case ACTION_ALWAYS:
+				{
+					dw.Verdict <- snitch.DROP_APP_ALWAYS_USER
+				}
+			}
 		}
-	case ACTION_SESSION:
+	case APPLY_SYSTEM:
 		{
-			dw.Verdict <- snitch.DROP_APP_SESSION
-		}
-	case ACTION_ALWAYS:
-		{
-			dw.Verdict <- snitch.DROP_APP_ALWAYS
+			switch dw.actioncombo.GetActive() {
+			case ACTION_ONCE:
+				{
+					dw.Verdict <- snitch.DROP_APP_ONCE_SYSTEM
+				}
+			case ACTION_SESSION:
+				{
+					dw.Verdict <- snitch.DROP_APP_SESSION_SYSTEM
+				}
+			case ACTION_ALWAYS:
+				{
+					dw.Verdict <- snitch.DROP_APP_ALWAYS_SYSTEM
+				}
+			}
 		}
 	}
 	dw.Hide()
 }
 
 func (dw *DialogWindow) Deny() {
-	switch dw.actioncombo.GetActive() {
-	case ACTION_ONCE:
+	switch dw.applycombo.GetActive() {
+	case APPLY_USER:
 		{
-			dw.Verdict <- snitch.DROP_CONN_ONCE
+			switch dw.actioncombo.GetActive() {
+			case ACTION_ONCE:
+				{
+					dw.Verdict <- snitch.DROP_CONN_ONCE_USER
+				}
+			case ACTION_SESSION:
+				{
+					dw.Verdict <- snitch.DROP_CONN_SESSION_USER
+				}
+			case ACTION_ALWAYS:
+				{
+					dw.Verdict <- snitch.DROP_CONN_ALWAYS_USER
+				}
+			}
 		}
-	case ACTION_SESSION:
+	case APPLY_SYSTEM:
 		{
-			dw.Verdict <- snitch.DROP_CONN_SESSION
-		}
-	case ACTION_ALWAYS:
-		{
-			dw.Verdict <- snitch.DROP_CONN_ALWAYS
+			switch dw.actioncombo.GetActive() {
+			case ACTION_ONCE:
+				{
+					dw.Verdict <- snitch.DROP_CONN_ONCE_SYSTEM
+				}
+			case ACTION_SESSION:
+				{
+					dw.Verdict <- snitch.DROP_CONN_SESSION_SYSTEM
+				}
+			case ACTION_ALWAYS:
+				{
+					dw.Verdict <- snitch.DROP_CONN_ALWAYS_SYSTEM
+				}
+			}
 		}
 	}
 	dw.Hide()
 }
 
 func (dw *DialogWindow) Allow() {
-	switch dw.actioncombo.GetActive() {
-	case ACTION_ONCE:
-		{
-			dw.Verdict <- snitch.ACCEPT_CONN_ONCE
+	switch dw.applycombo.GetActive() {
+	case APPLY_USER:
+		switch dw.actioncombo.GetActive() {
+		case ACTION_ONCE:
+			{
+				dw.Verdict <- snitch.ACCEPT_CONN_ONCE_USER
+			}
+		case ACTION_SESSION:
+			{
+				dw.Verdict <- snitch.ACCEPT_CONN_SESSION_USER
+			}
+		case ACTION_ALWAYS:
+			{
+				dw.Verdict <- snitch.ACCEPT_CONN_ALWAYS_USER
+			}
+		default:
+			{
+				fmt.Fprintf(os.Stderr, "Invalid action: %d\n", dw.actioncombo.GetActive())
+			}
 		}
-	case ACTION_SESSION:
-		{
-			dw.Verdict <- snitch.ACCEPT_CONN_SESSION
-		}
-	case ACTION_ALWAYS:
-		{
-			dw.Verdict <- snitch.ACCEPT_CONN_ALWAYS
-		}
-	default:
-		{
-			fmt.Fprintf(os.Stderr, "Invalid action: %d\n", dw.actioncombo.GetActive())
+	case APPLY_SYSTEM:
+		switch dw.actioncombo.GetActive() {
+		case ACTION_ONCE:
+			{
+				dw.Verdict <- snitch.ACCEPT_CONN_ONCE_SYSTEM
+			}
+		case ACTION_SESSION:
+			{
+				dw.Verdict <- snitch.ACCEPT_CONN_SESSION_SYSTEM
+			}
+		case ACTION_ALWAYS:
+			{
+				dw.Verdict <- snitch.ACCEPT_CONN_ALWAYS_SYSTEM
+			}
+		default:
+			{
+				fmt.Fprintf(os.Stderr, "Invalid action: %d\n", dw.actioncombo.GetActive())
+			}
 		}
 	}
 	dw.Hide()
@@ -279,4 +385,5 @@ func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
 	dw.labelUser.SetText(r.User)
 
 	dw.actioncombo.SetActive(ACTION_SESSION)
+	dw.applycombo.SetActive(APPLY_USER)
 }

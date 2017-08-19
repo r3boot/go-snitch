@@ -10,16 +10,21 @@ import (
 )
 
 const (
-	DB_PATH          string = "/var/lib/go-snitch.db"
-	CONN_TABLE_SQL   string = "CREATE TABLE IF NOT EXISTS conn_rules (cmd TEXT, verdict INTEGER, dstip TEXT, port TEXT, proto TEXT, user TEXT, UNIQUE (cmd, verdict, dstip, port, proto, user))"
-	GET_CONN_SQL     string = "SELECT verdict FROM conn_rules WHERE cmd = ? AND dstip = ? AND port = ? AND proto = ? AND user = ?"
-	ADD_CONN_SQL     string = "INSERT OR REPLACE INTO conn_rules VALUES (?, ?, ?, ?, ?, ?)"
-	GET_ALL_CONN_SQL string = "SELECT cmd, verdict, dstip, port, proto, user FROM conn_rules"
-	APP_TABLE_SQL    string = "CREATE TABLE IF NOT EXISTS app_rules (cmd TEXT, verdict INTEGER, UNIQUE (cmd, verdict))"
-	GET_APP_SQL      string = "SELECT verdict FROM app_rules WHERE cmd = ?"
-	GET_ALL_APP_SQL  string = "SELECT cmd, verdict FROM app_rules"
-	ADD_APP_SQL      string = "INSERT OR REPLACE INTO app_rules VALUES (?, ?)"
-	MAX_CACHE_SIZE   int    = 16384
+	DB_PATH           string = "/var/lib/go-snitch.db"
+	CONN_TABLE_SQL    string = "CREATE TABLE IF NOT EXISTS conn_rules (cmd TEXT, verdict INTEGER, dstip TEXT, port TEXT, proto TEXT, user TEXT, UNIQUE (cmd, verdict, dstip, port, proto, user))"
+	GET_CONN_SQL      string = "SELECT verdict, user FROM conn_rules WHERE cmd = ? AND dstip = ? AND port = ? AND proto = ?"
+	ADD_CONN_SQL      string = "INSERT OR REPLACE INTO conn_rules VALUES (?, ?, ?, ?, ?, ?)"
+	DEL_CONN_USER_SQL string = "DELETE FROM conn_rules WHERE cmd = ? AND user != '*'"
+	GET_ALL_CONN_SQL  string = "SELECT cmd, verdict, dstip, port, proto, user FROM conn_rules"
+	APP_TABLE_SQL     string = "CREATE TABLE IF NOT EXISTS app_rules (cmd TEXT, verdict INTEGER, user TEXT, UNIQUE (cmd, verdict, user))"
+	GET_APP_SQL       string = "SELECT verdict, user FROM app_rules WHERE cmd = ?"
+	DEL_APP_USER_SQL  string = "DELETE FROM app_rules WHERE cmd = ? AND user != '*'"
+	GET_ALL_APP_SQL   string = "SELECT cmd, verdict, user FROM app_rules"
+	ADD_APP_SQL       string = "INSERT OR REPLACE INTO app_rules VALUES (?, ?, ?)"
+	MAX_CACHE_SIZE    int    = 16384
+	USER_ANY          string = "*"
+	FILTER_USER       int    = 0
+	FILTER_SYSTEM     int    = 1
 )
 
 type RuleDB struct {
@@ -31,6 +36,7 @@ type RuleDB struct {
 type AppCacheEntry struct {
 	Cmd     string
 	Verdict netfilter.Verdict
+	User    string
 }
 
 type ConnCacheEntry struct {
@@ -45,6 +51,7 @@ type ConnCacheEntry struct {
 type SessionAppCacheEntry struct {
 	Cmd     string
 	Verdict int
+	User    string
 }
 
 type SessionConnCacheEntry struct {

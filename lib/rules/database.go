@@ -63,6 +63,7 @@ func (db *RuleDB) Connect() error {
 
 func (db *RuleDB) GetAppRule(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	verdict := netfilter.NF_UNDEF
+	user := ""
 
 	db.mutex.RLock()
 	defer db.mutex.RUnlock()
@@ -74,17 +75,21 @@ func (db *RuleDB) GetAppRule(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	defer response.Close()
 
 	for response.Next() {
-		err = response.Scan(&verdict)
+		err = response.Scan(&verdict, &user)
 		if err != nil {
 			return netfilter.NF_UNDEF, fmt.Errorf("rules: Failed to get verdict from app table: %v", err)
 		}
 		break
 	}
 
-	return verdict, nil
+	if user == USER_ANY || user == r.User {
+		return verdict, nil
+	}
+
+	return netfilter.NF_UNDEF, nil
 }
 
-func (db *RuleDB) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict) error {
+func (db *RuleDB) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict, filter int) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -93,7 +98,12 @@ func (db *RuleDB) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict) er
 		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
 	}
 
-	_, err = statement.Exec(r.Command, verdict)
+	user := r.User
+	if filter == FILTER_SYSTEM {
+		user = USER_ANY
+	}
+
+	_, err = statement.Exec(r.Command, verdict, user)
 	if err != nil {
 		return fmt.Errorf("rules: Failed to execute statement: %v", err)
 	}
@@ -101,30 +111,49 @@ func (db *RuleDB) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict) er
 	return nil
 }
 
+func (db *RuleDB) DeleteAppUserRules(r snitch.ConnRequest) error {
+	statement, err := db.conn.Prepare(DEL_APP_USER_SQL)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to prepare statement: %v\n", err)
+	}
+
+	_, err = statement.Exec(r.Command)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
+	}
+
+	return nil
+}
+
 func (db *RuleDB) GetConnRule(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	verdict := netfilter.NF_UNDEF
+	user := ""
 
 	db.mutex.RLock()
 	defer db.mutex.RUnlock()
 
-	response, err := db.conn.Query(GET_CONN_SQL, r.Command, r.DstIp, r.DstPort, r.Proto, r.User)
+	response, err := db.conn.Query(GET_CONN_SQL, r.Command, r.DstIp, r.DstPort, r.Proto)
 	if err != nil {
 		return verdict, fmt.Errorf("rules: Failed to query app table: %v", err)
 	}
 	defer response.Close()
 
 	for response.Next() {
-		err = response.Scan(&verdict)
+		err = response.Scan(&verdict, &user)
 		if err != nil {
 			return netfilter.NF_UNDEF, fmt.Errorf("rules: Failed to get verdict from app table: %v", err)
 		}
 		break
 	}
 
-	return verdict, nil
+	if user == USER_ANY || user == r.User {
+		return verdict, nil
+	}
+
+	return netfilter.NF_UNDEF, nil
 }
 
-func (db *RuleDB) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict) error {
+func (db *RuleDB) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict, filter int) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -133,9 +162,28 @@ func (db *RuleDB) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict) e
 		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
 	}
 
-	_, err = statement.Exec(r.Command, verdict, r.DstIp, r.DstPort, r.Proto, r.User)
+	user := r.User
+	if filter == FILTER_SYSTEM {
+		user = USER_ANY
+	}
+
+	_, err = statement.Exec(r.Command, verdict, r.DstIp, r.DstPort, r.Proto, user)
 	if err != nil {
 		return fmt.Errorf("rules: Failed to execute statement: %v", err)
+	}
+
+	return nil
+}
+
+func (db *RuleDB) DeleteConnUserRules(r snitch.ConnRequest) error {
+	statement, err := db.conn.Prepare(DEL_CONN_USER_SQL)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
+	}
+
+	_, err = statement.Exec(r.Command)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
 	}
 
 	return nil

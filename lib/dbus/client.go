@@ -27,13 +27,13 @@ func (dc *DBusClient) GetVerdict(r snitch.ConnRequest) (verdict int, err error) 
 
 	methodName = fmt.Sprintf("%s.GetVerdict", NAME)
 
-	verdict = snitch.DROP_CONN_ONCE
+	verdict = snitch.DROP_CONN_ONCE_USER
 
 	fmt.Printf("%v\n", r)
 
 	if err = dc.obj.Call(methodName, 0, r).Store(&verdict); err != nil {
 		fmt.Fprintf(os.Stderr, "Error in calling dbus: %v\n", err)
-		return snitch.DROP_CONN_ONCE, err
+		return snitch.DROP_CONN_ONCE_USER, err
 	}
 
 	return verdict, nil

@@ -110,39 +110,59 @@ func main() {
 
 			fmt.Printf("Setting verdict via dbus\n")
 			switch action {
-			case snitch.DROP_CONN_ALWAYS:
+			case snitch.DROP_CONN_ALWAYS_USER:
 				{
 					verdict = netfilter.NF_DROP
-					rulecache.AddConnRule(request, netfilter.NF_DROP)
+					rulecache.AddConnRule(request, netfilter.NF_DROP, rules.FILTER_USER)
 				}
-			case snitch.DROP_CONN_ONCE, snitch.DROP_CONN_SESSION:
+			case snitch.DROP_CONN_ALWAYS_SYSTEM:
+				{
+					verdict = netfilter.NF_DROP
+					rulecache.AddConnRule(request, netfilter.NF_DROP, rules.FILTER_SYSTEM)
+				}
+			case snitch.DROP_CONN_ONCE_USER, snitch.DROP_CONN_SESSION_USER, snitch.DROP_CONN_ONCE_SYSTEM, snitch.DROP_CONN_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_DROP
 				}
-			case snitch.ACCEPT_CONN_ALWAYS:
+			case snitch.ACCEPT_CONN_ALWAYS_USER:
 				{
 					verdict = netfilter.NF_ACCEPT
-					rulecache.AddConnRule(request, netfilter.NF_ACCEPT)
+					rulecache.AddConnRule(request, netfilter.NF_ACCEPT, rules.FILTER_USER)
 				}
-			case snitch.ACCEPT_CONN_ONCE, snitch.ACCEPT_CONN_SESSION:
+			case snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
+				{
+					verdict = netfilter.NF_ACCEPT
+					rulecache.AddConnRule(request, netfilter.NF_ACCEPT, rules.FILTER_SYSTEM)
+				}
+			case snitch.ACCEPT_CONN_ONCE_USER, snitch.ACCEPT_CONN_SESSION_USER, snitch.ACCEPT_CONN_ONCE_SYSTEM, snitch.ACCEPT_CONN_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_ACCEPT
 				}
-			case snitch.DROP_APP_ALWAYS:
+			case snitch.DROP_APP_ALWAYS_USER:
 				{
 					verdict = netfilter.NF_DROP
-					rulecache.AddAppRule(request, netfilter.NF_DROP)
+					rulecache.AddAppRule(request, netfilter.NF_DROP, rules.FILTER_USER)
 				}
-			case snitch.DROP_APP_ONCE, snitch.DROP_APP_SESSION:
+			case snitch.DROP_APP_ALWAYS_SYSTEM:
+				{
+					verdict = netfilter.NF_DROP
+					rulecache.AddAppRule(request, netfilter.NF_DROP, rules.FILTER_SYSTEM)
+				}
+			case snitch.DROP_APP_ONCE_USER, snitch.DROP_APP_SESSION_USER, snitch.DROP_APP_ONCE_SYSTEM, snitch.DROP_APP_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_DROP
 				}
-			case snitch.ACCEPT_APP_ALWAYS:
+			case snitch.ACCEPT_APP_ALWAYS_USER:
 				{
 					verdict = netfilter.NF_ACCEPT
-					rulecache.AddAppRule(request, netfilter.NF_ACCEPT)
+					rulecache.AddAppRule(request, netfilter.NF_ACCEPT, rules.FILTER_USER)
 				}
-			case snitch.ACCEPT_APP_ONCE, snitch.ACCEPT_APP_SESSION:
+			case snitch.ACCEPT_APP_ALWAYS_SYSTEM:
+				{
+					verdict = netfilter.NF_ACCEPT
+					rulecache.AddAppRule(request, netfilter.NF_ACCEPT, rules.FILTER_SYSTEM)
+				}
+			case snitch.ACCEPT_APP_ONCE_USER, snitch.ACCEPT_APP_SESSION_USER, snitch.ACCEPT_APP_ONCE_SYSTEM, snitch.ACCEPT_APP_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_ACCEPT
 				}

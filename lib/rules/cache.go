@@ -25,26 +25,62 @@ func (cache *RuleCache) GetAppRule(r snitch.ConnRequest) (netfilter.Verdict, err
 
 	for _, entry := range cache.appCache {
 		if entry.Cmd == r.Command {
-			return entry.Verdict, nil
+			if entry.User == USER_ANY || entry.User == r.User {
+				return entry.Verdict, nil
+			}
 		}
 	}
 
 	return netfilter.NF_UNDEF, nil
 }
 
-func (cache *RuleCache) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict) error {
+func (cache *RuleCache) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict, filter int) error {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	err := cache.backend.AddAppRule(r, verdict)
+	err := cache.backend.AddAppRule(r, verdict, filter)
 	if err != nil {
 		return fmt.Errorf("RuleCache: %v", err)
+	}
+
+	user := r.User
+	if filter == FILTER_SYSTEM {
+		cache.mutex.Unlock()
+		cache.DeleteAppUserRules(r)
+		cache.mutex.Lock()
+		user = USER_ANY
 	}
 
 	cache.appCache = append(cache.appCache, AppCacheEntry{
 		Cmd:     r.Command,
 		Verdict: verdict,
+		User:    user,
 	})
+
+	return nil
+}
+
+func (cache *RuleCache) DeleteAppUserRules(r snitch.ConnRequest) error {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	err := cache.backend.DeleteAppUserRules(r)
+	if err != nil {
+		return err
+	}
+
+	newAppCache := make([]AppCacheEntry, MAX_CACHE_SIZE)
+	for _, entry := range cache.appCache {
+		if entry.Cmd != r.Command {
+			continue
+		}
+		if entry.User != USER_ANY {
+			continue
+		}
+		newAppCache = append(newAppCache, entry)
+	}
+
+	cache.appCache = newAppCache
 
 	return nil
 }
@@ -54,21 +90,56 @@ func (cache *RuleCache) GetConnRule(r snitch.ConnRequest) (netfilter.Verdict, er
 	defer cache.mutex.RUnlock()
 
 	for _, entry := range cache.connCache {
-		if entry.Cmd == r.Command && entry.DstIp == r.DstIp && entry.DstPort == r.DstPort && entry.Proto == r.Proto && entry.User == r.User {
-			return entry.Verdict, nil
+		if entry.Cmd == r.Command && entry.DstIp == r.DstIp && entry.DstPort == r.DstPort && entry.Proto == r.Proto {
+			if entry.User == USER_ANY || entry.User == r.User {
+				return entry.Verdict, nil
+			}
 		}
 	}
 
 	return netfilter.NF_UNDEF, nil
 }
 
-func (cache *RuleCache) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict) error {
+func (cache *RuleCache) DeleteConnUserRules(r snitch.ConnRequest) error {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	err := cache.backend.AddConnRule(r, verdict)
+	err := cache.backend.DeleteConnUserRules(r)
+	if err != nil {
+		return err
+	}
+
+	newConnCache := make([]ConnCacheEntry, MAX_CACHE_SIZE)
+	for _, entry := range cache.connCache {
+		if entry.Cmd != r.Command {
+			continue
+		}
+		if entry.User != USER_ANY {
+			continue
+		}
+		newConnCache = append(newConnCache, entry)
+	}
+
+	cache.connCache = newConnCache
+
+	return nil
+}
+
+func (cache *RuleCache) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict, filter int) error {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	err := cache.backend.AddConnRule(r, verdict, filter)
 	if err != nil {
 		return fmt.Errorf("RuleCache: %v", err)
+	}
+
+	user := r.User
+	if filter == FILTER_SYSTEM {
+		cache.mutex.Unlock()
+		cache.DeleteConnUserRules(r)
+		cache.mutex.Lock()
+		user = USER_ANY
 	}
 
 	cache.connCache = append(cache.connCache, ConnCacheEntry{
@@ -77,7 +148,7 @@ func (cache *RuleCache) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verd
 		DstIp:   r.DstIp,
 		DstPort: r.DstPort,
 		Proto:   r.Proto,
-		User:    r.User,
+		User:    user,
 	})
 
 	return nil

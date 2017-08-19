@@ -84,25 +84,37 @@ func (verdict Verdict) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
 	response := <-dw.Verdict
 
 	switch response {
-	case snitch.DROP_CONN_SESSION:
+	case snitch.DROP_CONN_SESSION_USER:
 		{
-			fmt.Printf("adding drop conn once rule\n")
-			sessionCache.AddConnRule(r, snitch.DROP_CONN_ONCE)
+			sessionCache.AddConnRule(r, snitch.DROP_CONN_ONCE_USER)
 		}
-	case snitch.ACCEPT_CONN_SESSION:
+	case snitch.DROP_CONN_SESSION_SYSTEM:
 		{
-			fmt.Printf("adding accept conn once rule\n")
-			sessionCache.AddConnRule(r, snitch.ACCEPT_CONN_ONCE)
+			sessionCache.AddConnRule(r, snitch.DROP_CONN_ONCE_SYSTEM)
 		}
-	case snitch.DROP_APP_SESSION:
+	case snitch.ACCEPT_CONN_SESSION_USER:
 		{
-			fmt.Printf("adding drop app once rule\n")
-			sessionCache.AddAppRule(r, snitch.DROP_APP_ONCE)
+			sessionCache.AddConnRule(r, snitch.ACCEPT_CONN_ONCE_USER)
 		}
-	case snitch.ACCEPT_APP_SESSION:
+	case snitch.ACCEPT_CONN_SESSION_SYSTEM:
 		{
-			fmt.Printf("adding accept app once rule\n")
-			sessionCache.AddAppRule(r, snitch.ACCEPT_APP_ONCE)
+			sessionCache.AddConnRule(r, snitch.ACCEPT_CONN_ONCE_SYSTEM)
+		}
+	case snitch.DROP_APP_SESSION_USER:
+		{
+			sessionCache.AddAppRule(r, snitch.DROP_APP_ONCE_USER)
+		}
+	case snitch.DROP_APP_SESSION_SYSTEM:
+		{
+			sessionCache.AddAppRule(r, snitch.DROP_APP_ONCE_SYSTEM)
+		}
+	case snitch.ACCEPT_APP_SESSION_USER:
+		{
+			sessionCache.AddAppRule(r, snitch.ACCEPT_APP_ONCE_USER)
+		}
+	case snitch.ACCEPT_APP_SESSION_SYSTEM:
+		{
+			sessionCache.AddAppRule(r, snitch.ACCEPT_APP_ONCE_SYSTEM)
 		}
 	}
 
