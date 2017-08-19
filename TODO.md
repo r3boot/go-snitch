@@ -9,3 +9,4 @@
 - Add notification area icon to manage ui
 - Write documentation
 - Add configuration possibilities
+- Load rules during startup
