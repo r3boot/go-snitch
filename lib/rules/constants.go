@@ -40,9 +40,29 @@ type ConnCacheEntry struct {
 	User    string
 }
 
+type SessionAppCacheEntry struct {
+	Cmd     string
+	Verdict int
+}
+
+type SessionConnCacheEntry struct {
+	Cmd     string
+	Verdict int
+	DstIp   string
+	DstPort string
+	Proto   string
+	User    string
+}
+
 type RuleCache struct {
 	backend   *RuleDB
 	appCache  []AppCacheEntry
 	connCache []ConnCacheEntry
+	mutex     sync.RWMutex
+}
+
+type SessionCache struct {
+	appCache  []SessionAppCacheEntry
+	connCache []SessionConnCacheEntry
 	mutex     sync.RWMutex
 }

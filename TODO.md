@@ -1,0 +1,6 @@
+- Fix Dropping, unexpectedly due to no recv, idx=2548154674
+- Add iptables rules needed for operation
+- Add iptables rules for DNS lookups
+- Implement whitelist/block app
+- Implement duration action
+- Make daemon more robust

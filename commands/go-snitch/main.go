@@ -69,15 +69,29 @@ func main() {
 			case snitch.DROP_CONN_ALWAYS:
 				{
 					verdict = netfilter.NF_DROP
+					rulecache.AddConnRule(request, netfilter.NF_DROP)
+				}
+			case snitch.DROP_CONN_ONCE, snitch.DROP_CONN_SESSION:
+				{
+					verdict = netfilter.NF_DROP
 				}
 			case snitch.ACCEPT_CONN_ALWAYS:
 				{
 					verdict = netfilter.NF_ACCEPT
+					rulecache.AddConnRule(request, netfilter.NF_ACCEPT)
+				}
+			case snitch.ACCEPT_CONN_ONCE, snitch.ACCEPT_CONN_SESSION:
+				{
+					verdict = netfilter.NF_ACCEPT
+				}
+			default:
+				{
+					fmt.Fprintf(os.Stderr, "Unknown action!: %d\n", action)
 				}
 			}
 
+			fmt.Printf("Returning verdict\n")
 			p.SetVerdict(verdict)
-			err = rulecache.AddConnRule(request, verdict)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to set rule: %v", err)
 			}

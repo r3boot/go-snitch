@@ -126,9 +126,9 @@ func (dw *DialogWindow) Create() {
 	comboHBox.PackStart(labelActionAlign, false, true, 0)
 
 	dw.actioncombo = gtk.NewComboBoxText()
-	dw.actioncombo.AppendText("Once")
-	dw.actioncombo.AppendText("Until Quit")
-	dw.actioncombo.AppendText("Forever")
+	for _, value := range actionOptions {
+		dw.actioncombo.AppendText(value)
+	}
 	dw.actioncombo.SetActive(1)
 	dw.actioncombo.Connect("changed", dw.ActionChanged)
 	comboHBox.PackStart(dw.actioncombo, true, true, 0)
@@ -182,14 +182,42 @@ func (dw *DialogWindow) Block() {
 }
 
 func (dw *DialogWindow) Deny() {
-	fmt.Println("Dropping connection")
-	dw.Verdict <- snitch.DROP_CONN_ALWAYS
+	switch dw.actioncombo.GetActive() {
+	case ACTION_ONCE:
+		{
+			dw.Verdict <- snitch.DROP_CONN_ONCE
+		}
+	case ACTION_SESSION:
+		{
+			dw.Verdict <- snitch.DROP_CONN_SESSION
+		}
+	case ACTION_ALWAYS:
+		{
+			dw.Verdict <- snitch.DROP_CONN_ALWAYS
+		}
+	}
 	dw.Hide()
 }
 
 func (dw *DialogWindow) Allow() {
-	fmt.Println("Accepting connection")
-	dw.Verdict <- snitch.ACCEPT_CONN_ALWAYS
+	switch dw.actioncombo.GetActive() {
+	case ACTION_ONCE:
+		{
+			dw.Verdict <- snitch.ACCEPT_CONN_ONCE
+		}
+	case ACTION_SESSION:
+		{
+			dw.Verdict <- snitch.ACCEPT_CONN_SESSION
+		}
+	case ACTION_ALWAYS:
+		{
+			dw.Verdict <- snitch.ACCEPT_CONN_ALWAYS
+		}
+	default:
+		{
+			fmt.Fprintf(os.Stderr, "Invalid action: %d\n", dw.actioncombo.GetActive())
+		}
+	}
 	dw.Hide()
 }
 

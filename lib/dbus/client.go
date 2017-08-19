@@ -2,6 +2,7 @@ package dbus
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/godbus/dbus"
 
@@ -31,6 +32,7 @@ func (dc *DBusClient) GetVerdict(r snitch.ConnRequest) (verdict int, err error) 
 	fmt.Printf("%v\n", r)
 
 	if err = dc.obj.Call(methodName, 0, r).Store(&verdict); err != nil {
+		fmt.Fprintf(os.Stderr, "Error in calling dbus: %v\n", err)
 		return snitch.DROP_CONN_ONCE, err
 	}
 
