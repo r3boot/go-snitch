@@ -10,14 +10,16 @@ import (
 )
 
 const (
-	DB_PATH        string = "/var/lib/go-snitch.db"
-	CONN_TABLE_SQL string = "CREATE TABLE IF NOT EXISTS conn_rules (cmd TEXT, verdict INTEGER, dstip TEXT, port TEXT, proto TEXT, user TEXT, UNIQUE (cmd, verdict, dstip, port, proto, user))"
-	GET_CONN_SQL   string = "SELECT verdict FROM conn_rules WHERE cmd = ? AND dstip = ? AND port = ? AND proto = ? AND user = ?"
-	ADD_CONN_SQL   string = "INSERT OR REPLACE INTO conn_rules VALUES (?, ?, ?, ?, ?, ?)"
-	APP_TABLE_SQL  string = "CREATE TABLE IF NOT EXISTS app_rules (cmd TEXT, verdict INTEGER, UNIQUE (cmd, verdict))"
-	GET_APP_SQL    string = "SELECT verdict FROM app_rules WHERE cmd = ?"
-	ADD_APP_SQL    string = "INSERT OR REPLACE INTO app_rules VALUES (?, ?)"
-	MAX_CACHE_SIZE int    = 16384
+	DB_PATH          string = "/var/lib/go-snitch.db"
+	CONN_TABLE_SQL   string = "CREATE TABLE IF NOT EXISTS conn_rules (cmd TEXT, verdict INTEGER, dstip TEXT, port TEXT, proto TEXT, user TEXT, UNIQUE (cmd, verdict, dstip, port, proto, user))"
+	GET_CONN_SQL     string = "SELECT verdict FROM conn_rules WHERE cmd = ? AND dstip = ? AND port = ? AND proto = ? AND user = ?"
+	ADD_CONN_SQL     string = "INSERT OR REPLACE INTO conn_rules VALUES (?, ?, ?, ?, ?, ?)"
+	GET_ALL_CONN_SQL string = "SELECT cmd, verdict, dstip, port, proto, user FROM conn_rules"
+	APP_TABLE_SQL    string = "CREATE TABLE IF NOT EXISTS app_rules (cmd TEXT, verdict INTEGER, UNIQUE (cmd, verdict))"
+	GET_APP_SQL      string = "SELECT verdict FROM app_rules WHERE cmd = ?"
+	GET_ALL_APP_SQL  string = "SELECT cmd, verdict FROM app_rules"
+	ADD_APP_SQL      string = "INSERT OR REPLACE INTO app_rules VALUES (?, ?)"
+	MAX_CACHE_SIZE   int    = 16384
 )
 
 type RuleDB struct {

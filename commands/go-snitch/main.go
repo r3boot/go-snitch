@@ -36,6 +36,11 @@ func main() {
 	packets := nfq.GetPackets()
 
 	rulecache := rules.NewRuleCache("./rules.db")
+	err = rulecache.Prime()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to prime cache: %v\n", err)
+		os.Exit(1)
+	}
 
 	filter := kernel.NewNetfilter("/usr/bin/iptables", "/usr/bin/ip6tables")
 	filter.SetupRules()

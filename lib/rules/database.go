@@ -141,6 +141,56 @@ func (db *RuleDB) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict) e
 	return nil
 }
 
+func (db *RuleDB) GetAllConnEntries() ([]ConnCacheEntry, error) {
+	entries := make([]ConnCacheEntry, MAX_CACHE_SIZE)
+
+	db.mutex.RLock()
+	defer db.mutex.RUnlock()
+
+	response, err := db.conn.Query(GET_ALL_CONN_SQL)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Close()
+
+	for response.Next() {
+		entry := ConnCacheEntry{}
+		err = response.Scan(&entry.Cmd, &entry.Verdict, &entry.DstIp, &entry.DstPort, &entry.Proto, &entry.User)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse entry: %v\n", err)
+			continue
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
+func (db *RuleDB) GetAllAppEntries() ([]AppCacheEntry, error) {
+	entries := make([]AppCacheEntry, MAX_CACHE_SIZE)
+
+	db.mutex.RLock()
+	defer db.mutex.RUnlock()
+
+	response, err := db.conn.Query(GET_ALL_APP_SQL)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Close()
+
+	for response.Next() {
+		entry := AppCacheEntry{}
+		err = response.Scan(&entry.Cmd, &entry.Verdict)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse entry: %v\n", err)
+			continue
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
 func (db *RuleDB) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	verdict := netfilter.NF_UNDEF
 

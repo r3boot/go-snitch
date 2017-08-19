@@ -83,6 +83,22 @@ func (cache *RuleCache) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verd
 	return nil
 }
 
+func (cache *RuleCache) Prime() error {
+	appEntries, err := cache.backend.GetAllAppEntries()
+	if err != nil {
+		return err
+	}
+	cache.appCache = appEntries
+
+	connEntries, err := cache.backend.GetAllConnEntries()
+	if err != nil {
+		return err
+	}
+	cache.connCache = connEntries
+
+	return nil
+}
+
 func (cache *RuleCache) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	verdict := netfilter.NF_UNDEF
 
