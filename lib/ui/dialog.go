@@ -126,9 +126,9 @@ func (dw *DialogWindow) Create() {
 	comboHBox.PackStart(labelActionAlign, false, true, 0)
 
 	dw.actioncombo = gtk.NewComboBoxText()
-	for _, value := range actionOptions {
-		dw.actioncombo.AppendText(value)
-	}
+	dw.actioncombo.AppendText(actionOptions[ACTION_ONCE])
+	dw.actioncombo.AppendText(actionOptions[ACTION_SESSION])
+	dw.actioncombo.AppendText(actionOptions[ACTION_ALWAYS])
 	dw.actioncombo.SetActive(1)
 	dw.actioncombo.Connect("changed", dw.ActionChanged)
 	comboHBox.PackStart(dw.actioncombo, true, true, 0)
