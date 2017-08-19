@@ -2,5 +2,6 @@
 - Add iptables rules needed for operation
 - Add iptables rules for DNS lookups
 - Implement whitelist/block app
-- Implement duration action
 - Make daemon more robust
+- Fix Failed to get packet details: readlink /proc/-/exe: no such file or directory
+- Fix ipv6 (Failed to get packet details: readlink /proc//exe: no such file or directory, no pid found??)
