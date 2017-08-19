@@ -112,6 +112,9 @@ func (db *RuleDB) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict, fi
 }
 
 func (db *RuleDB) DeleteAppUserRules(r snitch.ConnRequest) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	statement, err := db.conn.Prepare(DEL_APP_USER_SQL)
 	if err != nil {
 		return fmt.Errorf("rules: Failed to prepare statement: %v\n", err)
@@ -176,6 +179,9 @@ func (db *RuleDB) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict, f
 }
 
 func (db *RuleDB) DeleteConnUserRules(r snitch.ConnRequest) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	statement, err := db.conn.Prepare(DEL_CONN_USER_SQL)
 	if err != nil {
 		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
