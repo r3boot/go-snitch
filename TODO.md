@@ -10,3 +10,4 @@
 - Write documentation
 - Add configuration possibilities
 - Load rules during startup
+- Add option to make rule per-user/systemwide
