@@ -10,3 +10,5 @@
 - Write documentation
 - Add configuration possibilities
 - Implement per-domain filtering
+- Rename project to microsnitch (uSnitch)
+- Add possibility to time-limit connections
