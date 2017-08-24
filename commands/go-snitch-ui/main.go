@@ -16,7 +16,6 @@ import (
 func main() {
 	var (
 		dbusServer *dbus.DBusServer
-		dialog     *ui.DialogWindow
 		err        error
 	)
 
@@ -25,10 +24,10 @@ func main() {
 	gdk.ThreadsEnter()
 	gtk.Init(nil)
 
-	dialog = ui.NewDialogWindow()
+	icon := ui.NewStatusIcon()
 
 	dbusServer = &dbus.DBusServer{}
-	if err = dbusServer.Connect(dialog); err != nil {
+	if err = dbusServer.Connect(icon.Dialog); err != nil {
 		fmt.Fprintf(os.Stderr, "dbusServer:", err)
 		os.Exit(1)
 	}

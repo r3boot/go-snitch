@@ -27,6 +27,33 @@ const (
 	FILTER_SYSTEM     int    = 1
 )
 
+type ConnRule struct {
+	Ip     string
+	Port   string
+	User   string
+	Action int
+	Scope  string
+}
+
+type RuleItem struct {
+	Command string
+	AppRule bool
+	User    string
+	Action  int
+	Scope   string
+	Rules   map[string]ConnRule
+}
+
+type RuleDetail struct {
+	AppRule bool
+	Command string
+	Ip      string
+	Port    string
+	User    string
+	Action  int
+	Scope   string
+}
+
 type RuleDB struct {
 	conn  *sql.DB
 	path  string
