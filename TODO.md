@@ -14,3 +14,4 @@
 - Add possibility to time-limit connections
 - Simplify rule database
 - Add time-based rules
+- Make proto field an int
