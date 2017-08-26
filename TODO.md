@@ -4,7 +4,7 @@
 - Fix ipv6 (Failed to get packet details: readlink /proc//exe: no such file or directory, no pid found??)
 - Close dialog window after tcp-timeout seconds (120)
 - Rework GetConnRequest to properly detect ipv6 packets over tap interfaces
-- Add application to manage existing ruleset
+- [wip] Add application to manage existing ruleset
 - Fix ipv6 detection on tap interface
 - Add notification area icon to manage ui
 - Write documentation
@@ -12,3 +12,5 @@
 - Implement per-domain filtering
 - Rename project to microsnitch (uSnitch)
 - Add possibility to time-limit connections
+- Simplify rule database
+- Add time-based rules
