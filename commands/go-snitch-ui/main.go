@@ -25,6 +25,7 @@ func main() {
 	gtk.Init(nil)
 
 	icon := ui.NewStatusIcon()
+	// ui.NewStatusIcon()
 
 	dbusServer = &dbus.DBusServer{}
 	if err = dbusServer.Connect(icon.Dialog); err != nil {
@@ -33,4 +34,5 @@ func main() {
 	}
 
 	gtk.Main()
+	gdk.ThreadsLeave()
 }

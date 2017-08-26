@@ -6,7 +6,7 @@ import (
 
 	"github.com/r3boot/go-snitch/lib/rules"
 
-	"github.com/mattn/go-gtk/gdk"
+	_ "github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
 )
@@ -148,7 +148,5 @@ func (mw *ManageWindow) TreeViewActivate() {
 }
 
 func (mw *ManageWindow) Show() {
-	gdk.ThreadsEnter()
 	mw.window.ShowAll()
-	gdk.ThreadsLeave()
 }

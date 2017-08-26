@@ -1,7 +1,8 @@
 package ui
 
 import (
-	"fmt"
+	_ "fmt"
+	_ "runtime"
 
 	_ "github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/glib"
@@ -14,6 +15,9 @@ func NewStatusIcon() *StatusIcon {
 	}
 
 	si.Dialog = NewDialogWindow()
+
+	si.detailWindow = NewManageDetailWindow()
+	si.manageWindow = NewManageWindow(si.detailWindow)
 
 	si.menu = gtk.NewMenu()
 
@@ -43,8 +47,6 @@ func NewStatusIcon() *StatusIcon {
 			si.itemEnable.SetSensitive(true)
 			si.itemDisable.SetSensitive(false)
 		}
-
-		fmt.Printf("Showing popup\n")
 
 		si.menu.Popup(nil, nil, gtk.StatusIconPositionMenu, si.icon, uint(ctx.Args(0)), uint32(ctx.Args(1)))
 	})
