@@ -20,3 +20,4 @@
 - Save RDNS on new rule
 - Fix row expand on rule delete in manage ui
 - Move various windows to separate subdirs of lib/ui
+- Delete connrules for db/session when selecting permanent rule
