@@ -96,6 +96,17 @@ func (cache *RuleCache) DeleteRule(id int) error {
 	return nil
 }
 
+func (cache *RuleCache) UpdateRule(newRule RuleDetail) error {
+	err := cache.backend.UpdateRule(newRule)
+	if err != nil {
+		return err
+	}
+
+	cache.Prime()
+
+	return nil
+}
+
 func (cache *RuleCache) Prime() error {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()

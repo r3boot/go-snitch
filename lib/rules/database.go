@@ -233,6 +233,35 @@ func (db *RuleDB) DeleteRule(id int) error {
 	return nil
 }
 
+func (db *RuleDB) UpdateRule(newRule RuleDetail) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	statement, err := db.conn.Prepare(UPDATE_RULE_SQL)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to prepare statement: %v\n", err)
+	}
+
+	verdict := netfilter.NF_UNDEF
+	switch newRule.Action {
+	case "accept":
+		{
+			verdict = netfilter.NF_ACCEPT
+		}
+	case "drop":
+		{
+			verdict = netfilter.NF_DROP
+		}
+	}
+
+	_, err = statement.Exec(newRule.Dstip, newRule.Port, newRule.Proto, newRule.User, verdict, newRule.Duration, newRule.Id)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
+	}
+
+	return nil
+}
+
 func (db *RuleDB) GetAllRules() ([]RuleItem, error) {
 	ruleset := []RuleItem{}
 

@@ -8,6 +8,8 @@ import (
 
 	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
+
+	"github.com/r3boot/go-snitch/lib/rules"
 )
 
 func actionToString(action int) string {
@@ -24,10 +26,9 @@ func actionToString(action int) string {
 	return "UNSET"
 }
 
-func NewManageWindow(dbus *DBusUi, md *ManageDetailWindow) *ManageWindow {
+func NewManageWindow(dbus *DBusUi) *ManageWindow {
 	mw := &ManageWindow{
-		dbus:   dbus,
-		detail: md,
+		dbus: dbus,
 	}
 	mw.Create()
 	return mw
@@ -39,6 +40,7 @@ func (mw *ManageWindow) Create() {
 	mw.window.SetPosition(gtk.WIN_POS_CENTER)
 	mw.window.SetTitle("Manage ruleset")
 	mw.window.SetSizeRequest(MANAGE_WINDOW_WIDTH, MANAGE_WINDOW_HEIGHT)
+	mw.window.Connect("delete-event", mw.Hide)
 
 	scrollWin := gtk.NewScrolledWindow(nil, nil)
 
@@ -128,8 +130,14 @@ func (mw *ManageWindow) fetchRules() map[int]*Rule {
 	return ruleset
 }
 
+func (mw *ManageWindow) ClearTreeStore() {
+	mw.ruleStore.Clear()
+}
+
 func (mw *ManageWindow) LoadRules() {
 	mw.ruleset = mw.fetchRules()
+
+	mw.ClearTreeStore()
 
 	for i := 0; i < len(mw.ruleset); i++ {
 		rule := mw.ruleset[i]
@@ -176,10 +184,6 @@ func (mw *ManageWindow) TreeViewActivate() {
 		id_i, _ = strconv.Atoi(id)
 	}
 
-	fmt.Printf("path: %s\n", path.String())
-	fmt.Printf("id: %d; connId: %d\n", id_i, connId_i)
-	fmt.Printf("ruleset: %v\n", mw.ruleset[id_i])
-
 	if len(mw.ruleset[id_i].ConnRules) > 0 && connId == "" {
 		if mw.ruleTreeview.RowExpanded(path) {
 			mw.ruleTreeview.CollapseRow(path)
@@ -189,7 +193,7 @@ func (mw *ManageWindow) TreeViewActivate() {
 		return
 	}
 
-	detail := RuleDetail{}
+	detail := rules.RuleDetail{}
 
 	if connId == "" {
 		detail.Id = mw.ruleset[id_i].Id
@@ -208,13 +212,20 @@ func (mw *ManageWindow) TreeViewActivate() {
 		detail.Action = mw.ruleset[id_i].ConnRules[connId_i].Action
 	}
 
-	fmt.Printf("detail :%v\n", detail)
+	mw.detailWindow.SetValues(detail)
+	mw.detailWindow.Show()
+}
 
-	mw.detail.SetValues(detail)
-	mw.detail.Show()
+func (mw *ManageWindow) SetDetailWindow(window *ManageDetailWindow) {
+	mw.detailWindow = window
 }
 
 func (mw *ManageWindow) Show() {
 	mw.LoadRules()
 	mw.window.ShowAll()
+}
+
+func (mw *ManageWindow) Hide() bool {
+	mw.window.Hide()
+	return true
 }

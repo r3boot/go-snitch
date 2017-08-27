@@ -20,8 +20,6 @@ func (cache *SessionCache) GetVerdict(r snitch.ConnRequest) (int, error) {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 
-	fmt.Printf("cache: %v\n", cache.ruleset)
-
 	isAppRule := true
 	foundRules := []SessionRuleItem{}
 	matchingRule := SessionRuleItem{}

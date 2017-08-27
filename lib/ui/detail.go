@@ -1,14 +1,19 @@
 package ui
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/r3boot/go-snitch/lib/rules"
 
 	_ "github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/gtk"
 )
 
-func NewManageDetailWindow() *ManageDetailWindow {
-	md := &ManageDetailWindow{}
+func NewManageDetailWindow(dbus *DBusUi) *ManageDetailWindow {
+	md := &ManageDetailWindow{
+		dbus: dbus,
+	}
 	md.Create()
 	return md
 }
@@ -19,6 +24,7 @@ func (md *ManageDetailWindow) Create() {
 	md.window.SetPosition(gtk.WIN_POS_CENTER)
 	md.window.SetTitle("Manage rule")
 	md.window.SetSizeRequest(MANAGE_DETAIL_WIDTH, MANAGE_DETAIL_HEIGHT)
+	md.window.Connect("delete-event", md.Hide)
 
 	vbox := gtk.NewVBox(false, 1)
 
@@ -89,16 +95,37 @@ func (md *ManageDetailWindow) Create() {
 	md.window.Add(vbox)
 }
 
+func (md *ManageDetailWindow) SetManageWindow(window *ManageWindow) {
+	md.manageWindow = window
+}
+
 func (md *ManageDetailWindow) Show() {
 	md.window.ShowAll()
 }
 
-func (md *ManageDetailWindow) Hide() {
+func (md *ManageDetailWindow) Hide() bool {
 	md.window.Hide()
+	return true
 }
 
 func (md *ManageDetailWindow) UpdateRule() {
 	md.Hide()
+
+	md.rule.Dstip = md.dstipLabel.GetText()
+	md.rule.Port = md.portLabel.GetText()
+	md.rule.Action = md.actionLabel.GetActiveText()
+	if md.radioSystem.GetActive() {
+		md.rule.User = rules.USER_ANY
+	} else {
+		md.rule.User = md.userLabelEntry.GetText()
+	}
+
+	if err := md.dbus.UpdateRule(md.rule); err != nil {
+		fmt.Fprintf(os.Stderr, "md.UpdateRule: %v\n", err)
+		return
+	}
+
+	md.manageWindow.LoadRules()
 }
 
 func (md *ManageDetailWindow) DeleteRule() {
@@ -113,7 +140,9 @@ func (md *ManageDetailWindow) radioUserChanged() {
 	}
 }
 
-func (md *ManageDetailWindow) SetValues(r RuleDetail) {
+func (md *ManageDetailWindow) SetValues(r rules.RuleDetail) {
+	md.rule = r
+
 	if r.Dstip == "" {
 		md.window.SetTitle("Edit application rule")
 		md.dstipLabel.SetSensitive(false)

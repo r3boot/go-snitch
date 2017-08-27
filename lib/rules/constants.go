@@ -44,6 +44,10 @@ const DELETE_RULE_BY_ID_SQL string = `DELETE FROM ruleset WHERE id = ?`
 const DELETE_CONN_RULE_BY_CMD_SQL string = `DELETE FROM ruleset WHERE
 	cmd = ? AND dstip != ''`
 
+const UPDATE_RULE_SQL string = `UPDATE ruleset SET
+	dstip = ?, port = ?, proto = ?, user = ?, verdict = ?, duration = ?
+	WHERE id = ?`
+
 const GET_ALL_RULES_SQL string = `SELECT * FROM ruleset`
 
 const (
@@ -75,6 +79,18 @@ type SessionRuleItem struct {
 	Port      string
 	Proto     int
 	User      string
+	Timestamp time.Time
+	Duration  time.Duration
+}
+
+type RuleDetail struct {
+	Id        int
+	Command   string
+	Dstip     string
+	Port      string
+	Proto     int
+	User      string
+	Action    string
 	Timestamp time.Time
 	Duration  time.Duration
 }

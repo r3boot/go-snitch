@@ -87,6 +87,8 @@ func main() {
 			request, err := snitch.GetConnRequest(p.Packet)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to get packet details: %v\n", err)
+				p.SetVerdict(netfilter.NF_DROP)
+				continue
 			}
 
 			verdict, err := rulecache.GetVerdict(request)
@@ -103,7 +105,7 @@ func main() {
 
 			action, err := dbusDaemon.GetVerdict(request)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v", err)
+				fmt.Fprintf(os.Stderr, "%v\n", err)
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}

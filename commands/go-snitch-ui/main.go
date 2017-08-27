@@ -30,8 +30,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	icon.DetailWindow = ui.NewManageDetailWindow()
-	icon.ManageWindow = ui.NewManageWindow(dbusUi, icon.DetailWindow)
+	icon.DetailWindow = ui.NewManageDetailWindow(dbusUi)
+	icon.ManageWindow = ui.NewManageWindow(dbusUi)
+
+	icon.ManageWindow.SetDetailWindow(icon.DetailWindow)
+	icon.DetailWindow.SetManageWindow(icon.ManageWindow)
 
 	gtk.Main()
 	gdk.ThreadsLeave()

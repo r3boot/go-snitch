@@ -5,6 +5,8 @@ import (
 
 	"github.com/godbus/dbus"
 	"github.com/mattn/go-gtk/gtk"
+
+	"github.com/r3boot/go-snitch/lib/rules"
 )
 
 const (
@@ -69,11 +71,14 @@ type ManageWindow struct {
 	ruleset      map[int]*Rule
 	ruleTreeview *gtk.TreeView
 	ruleStore    *gtk.TreeStore
-	detail       *ManageDetailWindow
+	detailWindow *ManageDetailWindow
 }
 
 type ManageDetailWindow struct {
 	window         *gtk.Window
+	dbus           *DBusUi
+	manageWindow   *ManageWindow
+	rule           rules.RuleDetail
 	commandLabel   *gtk.Label
 	dstipLabel     *gtk.Entry
 	portLabel      *gtk.Entry
@@ -92,18 +97,6 @@ type StatusIcon struct {
 	menu         *gtk.Menu
 	itemEnable   *gtk.MenuItem
 	itemDisable  *gtk.MenuItem
-}
-
-type RuleDetail struct {
-	Id        int
-	Command   string
-	Dstip     string
-	Port      string
-	Proto     int
-	User      string
-	Action    string
-	Timestamp time.Time
-	Duration  time.Duration
 }
 
 type ConnRule struct {
