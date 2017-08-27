@@ -91,6 +91,7 @@ func (mw *ManageWindow) fetchRules() map[int]*Rule {
 			newRuleId := len(ruleset)
 			ruleset[newRuleId] = &Rule{
 				Command:   item.Cmd,
+				RuleType:  RULE_DB,
 				ConnRules: make(map[int]*ConnRule),
 			}
 			ruleId = newRuleId
@@ -100,6 +101,7 @@ func (mw *ManageWindow) fetchRules() map[int]*Rule {
 			cmdRuleId := getRuleId(item.Cmd, ruleset)
 			if cmdRuleId == -1 {
 				ruleset[ruleId] = &Rule{
+					RuleType:  RULE_DB,
 					ConnRules: make(map[int]*ConnRule),
 				}
 				cmdRuleId = len(ruleset[cmdRuleId].ConnRules)
@@ -120,6 +122,7 @@ func (mw *ManageWindow) fetchRules() map[int]*Rule {
 			ruleset[cmdRuleId].ConnRules[connRuleId].Duration = item.Duration
 		} else {
 			ruleset[ruleId].Id = item.Id
+			ruleset[ruleId].RuleType = RULE_DB
 			ruleset[ruleId].User = item.User
 			ruleset[ruleId].Action = VerdictToAction(item.Verdict)
 			ruleset[ruleId].Timestamp = item.Timestamp
@@ -127,6 +130,59 @@ func (mw *ManageWindow) fetchRules() map[int]*Rule {
 		}
 	}
 
+	sessionRules, err := mw.cache.GetAllRules()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mw.fetchRules: Failed to load session rules: %v\n", err)
+	}
+
+	fmt.Printf("sessionRules: %v\n", sessionRules)
+
+	for _, item := range sessionRules {
+		ruleId := getRuleId(item.Cmd, ruleset)
+		if ruleId == -1 {
+			newRuleId := len(ruleset)
+			ruleset[newRuleId] = &Rule{
+				Command:   item.Cmd,
+				RuleType:  RULE_SESSION,
+				ConnRules: make(map[int]*ConnRule),
+			}
+			ruleId = newRuleId
+		}
+
+		if item.Dstip != "" {
+			cmdRuleId := getRuleId(item.Cmd, ruleset)
+			if cmdRuleId == -1 {
+				ruleset[ruleId] = &Rule{
+					RuleType:  RULE_SESSION,
+					ConnRules: make(map[int]*ConnRule),
+				}
+				cmdRuleId = len(ruleset[cmdRuleId].ConnRules)
+			}
+
+			connRuleId := len(ruleset[cmdRuleId].ConnRules)
+			if _, ok := ruleset[cmdRuleId].ConnRules[connRuleId]; !ok {
+				ruleset[cmdRuleId].ConnRules[connRuleId] = &ConnRule{}
+			}
+
+			ruleset[cmdRuleId].ConnRules[connRuleId].Id = item.Id
+			ruleset[cmdRuleId].ConnRules[connRuleId].Dstip = item.Dstip
+			ruleset[cmdRuleId].ConnRules[connRuleId].Port = item.Port
+			ruleset[cmdRuleId].ConnRules[connRuleId].Proto = item.Proto
+			ruleset[cmdRuleId].ConnRules[connRuleId].User = item.User
+			ruleset[cmdRuleId].ConnRules[connRuleId].Action = ActionToAction(item.Verdict)
+			ruleset[cmdRuleId].ConnRules[connRuleId].Verdict = item.Verdict
+			ruleset[cmdRuleId].ConnRules[connRuleId].Timestamp = item.Timestamp
+			ruleset[cmdRuleId].ConnRules[connRuleId].Duration = item.Duration
+		} else {
+			ruleset[ruleId].Id = item.Id
+			ruleset[ruleId].RuleType = RULE_SESSION
+			ruleset[ruleId].User = item.User
+			ruleset[ruleId].Action = ActionToAction(item.Verdict)
+			ruleset[ruleId].Verdict = item.Verdict
+			ruleset[ruleId].Timestamp = item.Timestamp
+			ruleset[ruleId].Duration = item.Duration
+		}
+	}
 	return ruleset
 }
 
@@ -201,6 +257,8 @@ func (mw *ManageWindow) TreeViewActivate() {
 		detail.User = mw.ruleset[id_i].User
 		detail.Duration = mw.ruleset[id_i].Duration
 		detail.Action = mw.ruleset[id_i].Action
+		detail.Verdict = mw.ruleset[id_i].Verdict
+		detail.RuleType = mw.ruleset[id_i].RuleType
 	} else {
 		detail.Id = mw.ruleset[id_i].ConnRules[connId_i].Id
 		detail.Command = mw.ruleset[id_i].Command
@@ -210,6 +268,8 @@ func (mw *ManageWindow) TreeViewActivate() {
 		detail.User = mw.ruleset[id_i].ConnRules[connId_i].User
 		detail.Duration = mw.ruleset[id_i].ConnRules[connId_i].Duration
 		detail.Action = mw.ruleset[id_i].ConnRules[connId_i].Action
+		detail.Verdict = mw.ruleset[id_i].ConnRules[connId_i].Verdict
+		detail.RuleType = mw.ruleset[id_i].RuleType
 	}
 
 	mw.detailWindow.SetValues(detail)
@@ -218,6 +278,10 @@ func (mw *ManageWindow) TreeViewActivate() {
 
 func (mw *ManageWindow) SetDetailWindow(window *ManageDetailWindow) {
 	mw.detailWindow = window
+}
+
+func (mw *ManageWindow) SetSessionCache(cache *rules.SessionCache) {
+	mw.cache = cache
 }
 
 func (mw *ManageWindow) Show() {

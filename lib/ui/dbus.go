@@ -17,12 +17,14 @@ var dw *DialogWindow
 
 var sessionCache *rules.SessionCache
 
-func (du *DBusUi) Connect(dialog *DialogWindow) (err error) {
+func (du *DBusUi) Connect(dialog *DialogWindow, cache *rules.SessionCache) (err error) {
 	var (
 		reply     dbus.RequestNameReply
 		verdict   Verdict
 		introNode *introspect.Node
 	)
+
+	sessionCache = cache
 
 	if du.conn, err = dbus.SystemBus(); err != nil {
 		du.conn = nil
@@ -62,8 +64,6 @@ func (du *DBusUi) Connect(dialog *DialogWindow) (err error) {
 		"org.freedesktop.DBus.Introspectable")
 
 	dw = dialog
-
-	sessionCache = rules.NewSessionCache()
 
 	return nil
 }

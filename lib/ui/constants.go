@@ -21,6 +21,9 @@ const (
 
 	MAX_CACHE_SIZE int = 16384
 
+	RULE_DB      int = 0
+	RULE_SESSION int = 1
+
 	ACTION_ONCE    int = 0
 	ACTION_SESSION int = 1
 	ACTION_ALWAYS  int = 2
@@ -68,6 +71,7 @@ type DialogWindow struct {
 type ManageWindow struct {
 	window       *gtk.Window
 	dbus         *DBusUi
+	cache        *rules.SessionCache
 	ruleset      map[int]*Rule
 	ruleTreeview *gtk.TreeView
 	ruleStore    *gtk.TreeStore
@@ -78,6 +82,7 @@ type ManageDetailWindow struct {
 	window         *gtk.Window
 	dbus           *DBusUi
 	manageWindow   *ManageWindow
+	cache          *rules.SessionCache
 	rule           rules.RuleDetail
 	commandLabel   *gtk.Label
 	dstipLabel     *gtk.Entry
@@ -106,6 +111,7 @@ type ConnRule struct {
 	Proto     int
 	User      string
 	Action    string
+	Verdict   int
 	Timestamp time.Time
 	Duration  time.Duration
 }
@@ -115,7 +121,9 @@ type Rule struct {
 	Command   string
 	User      string
 	Action    string
+	Verdict   int
 	Timestamp time.Time
+	RuleType  int
 	Duration  time.Duration
 	ConnRules map[int]*ConnRule
 }
@@ -123,6 +131,7 @@ type Rule struct {
 type DBusUi struct {
 	conn   *dbus.Conn
 	daemon dbus.BusObject
+	cache  *rules.SessionCache
 	dialog *DialogWindow
 }
 

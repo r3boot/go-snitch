@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/r3boot/go-snitch/lib/rules"
+	"github.com/r3boot/go-snitch/lib/snitch"
 
 	_ "github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/gtk"
@@ -99,6 +100,10 @@ func (md *ManageDetailWindow) SetManageWindow(window *ManageWindow) {
 	md.manageWindow = window
 }
 
+func (md *ManageDetailWindow) SetSessionCache(cache *rules.SessionCache) {
+	md.cache = cache
+}
+
 func (md *ManageDetailWindow) Show() {
 	md.window.ShowAll()
 }
@@ -120,9 +125,38 @@ func (md *ManageDetailWindow) UpdateRule() {
 		md.rule.User = md.userLabelEntry.GetText()
 	}
 
-	if err := md.dbus.UpdateRule(md.rule); err != nil {
-		fmt.Fprintf(os.Stderr, "md.UpdateRule: %v\n", err)
-		return
+	fmt.Printf("md.rule: %v\n", md.rule)
+
+	switch md.rule.RuleType {
+	case RULE_DB:
+		{
+			if err := md.dbus.UpdateRule(md.rule); err != nil {
+				fmt.Fprintf(os.Stderr, "md.UpdateRule: %v\n", err)
+				return
+			}
+		}
+	case RULE_SESSION:
+		{
+			switch md.rule.Action {
+			case "accept":
+				{
+					if md.rule.User == rules.USER_ANY {
+						md.rule.Verdict = snitch.ACCEPT_CONN_ONCE_SYSTEM
+					} else {
+						md.rule.Verdict = snitch.ACCEPT_CONN_ONCE_USER
+					}
+				}
+			case "reject":
+				{
+					if md.rule.User == rules.USER_ANY {
+						md.rule.Verdict = snitch.DROP_CONN_ONCE_SYSTEM
+					} else {
+						md.rule.Verdict = snitch.DROP_CONN_ONCE_USER
+					}
+				}
+			}
+			md.cache.UpdateRule(md.rule)
+		}
 	}
 
 	md.manageWindow.LoadRules()
@@ -131,9 +165,18 @@ func (md *ManageDetailWindow) UpdateRule() {
 func (md *ManageDetailWindow) DeleteRule() {
 	md.Hide()
 
-	if err := md.dbus.DeleteRule(md.rule.Id); err != nil {
-		fmt.Fprintf(os.Stderr, "md.DeleteRule: %v\n", err)
-		return
+	switch md.rule.RuleType {
+	case RULE_DB:
+		{
+			if err := md.dbus.DeleteRule(md.rule.Id); err != nil {
+				fmt.Fprintf(os.Stderr, "md.DeleteRule: %v\n", err)
+				return
+			}
+		}
+	case RULE_SESSION:
+		{
+			md.cache.DeleteRule(md.rule.Id)
+		}
 	}
 
 	md.manageWindow.LoadRules()

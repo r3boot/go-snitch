@@ -24,6 +24,27 @@ func VerdictToAction(verdict netfilter.Verdict) string {
 	}
 }
 
+func ActionToAction(action int) string {
+	switch action {
+	case snitch.DROP_CONN_ONCE_USER,
+		snitch.DROP_CONN_ONCE_SYSTEM,
+		snitch.DROP_APP_ONCE_USER,
+		snitch.DROP_APP_ONCE_SYSTEM:
+		{
+			return "reject"
+		}
+	case snitch.ACCEPT_CONN_ONCE_USER,
+		snitch.ACCEPT_CONN_ONCE_SYSTEM,
+		snitch.ACCEPT_APP_ONCE_USER,
+		snitch.ACCEPT_APP_ONCE_SYSTEM:
+		{
+			return "accept"
+		}
+	default:
+		return "UNKNOWN"
+	}
+}
+
 func getRuleId(cmd string, rules map[int]*Rule) int {
 	for key, value := range rules {
 		if value.Command == cmd {

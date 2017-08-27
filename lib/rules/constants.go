@@ -91,6 +91,8 @@ type RuleDetail struct {
 	Proto     int
 	User      string
 	Action    string
+	RuleType  int
+	Verdict   int
 	Timestamp time.Time
 	Duration  time.Duration
 }

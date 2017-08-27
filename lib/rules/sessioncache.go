@@ -59,7 +59,7 @@ func (cache *SessionCache) GetVerdict(r snitch.ConnRequest) (int, error) {
 	// Check if the rule is expired
 	if matchingRule.Duration != 0 {
 		if time.Since(matchingRule.Timestamp) > matchingRule.Duration {
-			cache.DeleteRule(matchingRule)
+			cache.DeleteRuleByRule(matchingRule)
 			return snitch.UNKNOWN, nil
 		}
 	}
@@ -89,7 +89,7 @@ func (cache *SessionCache) DeleteConnRulesFor(cmd string) {
 	cache.ruleset = ruleset
 }
 
-func (cache *SessionCache) DeleteRule(delRule SessionRuleItem) {
+func (cache *SessionCache) DeleteRuleByRule(delRule SessionRuleItem) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
@@ -97,6 +97,22 @@ func (cache *SessionCache) DeleteRule(delRule SessionRuleItem) {
 
 	for _, rule := range cache.ruleset {
 		if rule == delRule {
+			continue
+		}
+		ruleset = append(ruleset, rule)
+	}
+
+	cache.ruleset = ruleset
+}
+
+func (cache *SessionCache) DeleteRule(id int) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	ruleset := []SessionRuleItem{}
+
+	for _, rule := range cache.ruleset {
+		if rule.Id == id {
 			continue
 		}
 		ruleset = append(ruleset, rule)
@@ -142,10 +158,23 @@ func (cache *SessionCache) DeleteConnUserRules(r snitch.ConnRequest) {
 	cache.ruleset = ruleset
 }
 
+func (cache *SessionCache) NextFreeId() int {
+	if len(cache.ruleset) == 0 {
+		return 0
+	}
+
+	lastId := 0
+	for _, rule := range cache.ruleset {
+		if rule.Id > lastId {
+			lastId = rule.Id
+		}
+	}
+
+	return lastId + 1
+}
+
 func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 	user := r.User
-
-	fmt.Printf("AddRule: %s\n", DialogVerdictToString(verdict))
 
 	// Delete existing rules if rule is built as a system-wide rule
 	switch verdict {
@@ -171,9 +200,9 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 		snitch.DROP_APP_ONCE_SYSTEM,
 		snitch.DROP_APP_ONCE_USER:
 		{
-			fmt.Printf("AddRule: adding app rule\n")
 			cache.DeleteConnRulesFor(r.Command)
 			cache.ruleset = append(cache.ruleset, SessionRuleItem{
+				Id:        cache.NextFreeId(),
 				Cmd:       r.Command,
 				Verdict:   verdict,
 				User:      user,
@@ -186,8 +215,8 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 		snitch.DROP_CONN_ONCE_SYSTEM,
 		snitch.DROP_CONN_ONCE_USER:
 		{
-			fmt.Printf("AddRule: adding conn rule\n")
 			cache.ruleset = append(cache.ruleset, SessionRuleItem{
+				Id:        cache.NextFreeId(),
 				Cmd:       r.Command,
 				Verdict:   verdict,
 				Dstip:     r.Dstip,
@@ -200,7 +229,45 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 		}
 	}
 
-	fmt.Printf("cache.ruleset: %v\n", cache.ruleset)
+	fmt.Printf("cache: %v\n", cache.ruleset)
 
 	return nil
+}
+
+func (cache *SessionCache) GetAllRules() ([]SessionRuleItem, error) {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+
+	fmt.Printf("cache: %v\n", cache.ruleset)
+
+	return cache.ruleset, nil
+}
+
+func (cache *SessionCache) UpdateRule(newRule RuleDetail) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	newRuleset := []SessionRuleItem{}
+
+	fmt.Printf("newRule: %v\n", newRule)
+
+	for _, rule := range cache.ruleset {
+		if rule.Id == newRule.Id {
+			newRuleset = append(newRuleset, SessionRuleItem{
+				Id:       newRule.Id,
+				Cmd:      newRule.Command,
+				Dstip:    newRule.Dstip,
+				Port:     newRule.Port,
+				Proto:    newRule.Proto,
+				User:     newRule.User,
+				Verdict:  newRule.Verdict,
+				Duration: newRule.Duration,
+			})
+		} else {
+			newRuleset = append(newRuleset, rule)
+		}
+	}
+
+	cache.ruleset = newRuleset
+	fmt.Printf("cache: %v\n", cache.ruleset)
 }
