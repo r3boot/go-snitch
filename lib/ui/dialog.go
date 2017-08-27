@@ -39,7 +39,7 @@ func getIANAName(proto int, port string) string {
 		}
 	}
 
-	reLine := regexp.MustCompile(fmt.Sprintf("^([a-z0-9-_]+)\\ +%s/%d$", port, protoName))
+	reLine := regexp.MustCompile(fmt.Sprintf("^([a-z0-9-_]+)\\ +%s/%s$", port, protoName))
 
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
@@ -368,8 +368,19 @@ func (dw *DialogWindow) Allow() {
 func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
 	appname := fmt.Sprintf("<b>%s wants to connect to the network</b>", path.Base(strings.Split(r.Command, " ")[0]))
 	portName := getIANAName(r.Proto, r.Port)
+	protoName := "UNKNOWN"
+	switch r.Proto {
+	case snitch.PROTO_TCP:
+		{
+			protoName = "tcp"
+		}
+	case snitch.PROTO_UDP:
+		{
+			protoName = "udp"
+		}
+	}
 
-	port := fmt.Sprintf("%s/%s", r.Proto, r.Port)
+	port := fmt.Sprintf("%s/%s", protoName, r.Port)
 	if portName != "" {
 		port = fmt.Sprintf("%s (%s)", port, portName)
 	}
