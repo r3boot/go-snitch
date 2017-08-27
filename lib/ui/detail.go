@@ -130,6 +130,13 @@ func (md *ManageDetailWindow) UpdateRule() {
 
 func (md *ManageDetailWindow) DeleteRule() {
 	md.Hide()
+
+	if err := md.dbus.DeleteRule(md.rule.Id); err != nil {
+		fmt.Fprintf(os.Stderr, "md.DeleteRule: %v\n", err)
+		return
+	}
+
+	md.manageWindow.LoadRules()
 }
 
 func (md *ManageDetailWindow) radioUserChanged() {

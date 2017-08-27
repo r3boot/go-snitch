@@ -159,3 +159,18 @@ func (du *DBusUi) UpdateRule(newRule rules.RuleDetail) error {
 
 	return nil
 }
+
+func (du *DBusUi) DeleteRule(id int) error {
+	methodName := fmt.Sprintf("%s.DeleteRule", DAEMON_NAME)
+
+	var response string
+	if err := du.daemon.Call(methodName, 0, id).Store(&response); err != nil {
+		return fmt.Errorf("ui.DeleteRule: Error in calling dbus: %v", err)
+	}
+
+	if response != "ok" {
+		return fmt.Errorf("ui.DeleteRule: Failed to delete rule: %s", response)
+	}
+
+	return nil
+}

@@ -85,6 +85,16 @@ func (b Base) UpdateRule(data string) (string, *dbus.Error) {
 	return "ok", nil
 }
 
+func (b Base) DeleteRule(id int) (string, *dbus.Error) {
+
+	if err := ruleCache.DeleteRule(id); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to delete rule: %v\n", err)
+		return err.Error(), nil
+	}
+
+	return "ok", nil
+}
+
 func (dd *DBusDaemon) GetVerdict(r snitch.ConnRequest) (verdict int, err error) {
 	methodName := fmt.Sprintf("%s.GetVerdict", UI_NAME)
 

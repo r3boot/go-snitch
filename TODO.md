@@ -17,3 +17,5 @@
 - Make proto field an int
 - Convert RuleDetail.Action to int
 - Make naming of widgets more consistent
+- Make base types of dbus servers logical
+- Add authentication mechanism for dbus calls
