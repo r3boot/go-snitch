@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -36,20 +37,10 @@ func (db *RuleDB) Connect() error {
 		return fmt.Errorf("rules: Failed to open database: %v", err)
 	}
 
-	// Create connection table
-	statement, err := db.conn.Prepare(CONN_TABLE_SQL)
+	// Create ruleset table
+	statement, err := db.conn.Prepare(RULESET_TABLE_SQL)
 	if err != nil {
-		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
-	}
-
-	_, err = statement.Exec()
-	if err != nil {
-		return fmt.Errorf("rules: Failed to execute statement: %v", err)
-	}
-
-	// Create application table
-	statement, err = db.conn.Prepare(APP_TABLE_SQL)
-	if err != nil {
+		fmt.Fprintf(os.Stderr, RULESET_TABLE_SQL)
 		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
 	}
 
@@ -59,208 +50,219 @@ func (db *RuleDB) Connect() error {
 	}
 
 	return nil
-}
-
-func (db *RuleDB) GetAppRule(r snitch.ConnRequest) (netfilter.Verdict, error) {
-	verdict := netfilter.NF_UNDEF
-	user := ""
-
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
-
-	response, err := db.conn.Query(GET_APP_SQL, r.Command)
-	if err != nil {
-		return verdict, fmt.Errorf("rules: Failed to query app table: %v", err)
-	}
-	defer response.Close()
-
-	for response.Next() {
-		err = response.Scan(&verdict, &user)
-		if err != nil {
-			return netfilter.NF_UNDEF, fmt.Errorf("rules: Failed to get verdict from app table: %v", err)
-		}
-		break
-	}
-
-	if user == USER_ANY || user == r.User {
-		return verdict, nil
-	}
-
-	return netfilter.NF_UNDEF, nil
-}
-
-func (db *RuleDB) AddAppRule(r snitch.ConnRequest, verdict netfilter.Verdict, filter int) error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	statement, err := db.conn.Prepare(ADD_APP_SQL)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
-	}
-
-	user := r.User
-	if filter == FILTER_SYSTEM {
-		user = USER_ANY
-	}
-
-	_, err = statement.Exec(r.Command, verdict, user)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to execute statement: %v", err)
-	}
-
-	return nil
-}
-
-func (db *RuleDB) DeleteAppUserRules(r snitch.ConnRequest) error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	statement, err := db.conn.Prepare(DEL_APP_USER_SQL)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to prepare statement: %v\n", err)
-	}
-
-	_, err = statement.Exec(r.Command)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
-	}
-
-	return nil
-}
-
-func (db *RuleDB) GetConnRule(r snitch.ConnRequest) (netfilter.Verdict, error) {
-	verdict := netfilter.NF_UNDEF
-	user := ""
-
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
-
-	response, err := db.conn.Query(GET_CONN_SQL, r.Command, r.DstIp, r.DstPort, r.Proto)
-	if err != nil {
-		return verdict, fmt.Errorf("rules: Failed to query app table: %v", err)
-	}
-	defer response.Close()
-
-	for response.Next() {
-		err = response.Scan(&verdict, &user)
-		if err != nil {
-			return netfilter.NF_UNDEF, fmt.Errorf("rules: Failed to get verdict from app table: %v", err)
-		}
-		break
-	}
-
-	if user == USER_ANY || user == r.User {
-		return verdict, nil
-	}
-
-	return netfilter.NF_UNDEF, nil
-}
-
-func (db *RuleDB) AddConnRule(r snitch.ConnRequest, verdict netfilter.Verdict, filter int) error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	statement, err := db.conn.Prepare(ADD_CONN_SQL)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
-	}
-
-	user := r.User
-	if filter == FILTER_SYSTEM {
-		user = USER_ANY
-	}
-
-	_, err = statement.Exec(r.Command, verdict, r.DstIp, r.DstPort, r.Proto, user)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to execute statement: %v", err)
-	}
-
-	return nil
-}
-
-func (db *RuleDB) DeleteConnUserRules(r snitch.ConnRequest) error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	statement, err := db.conn.Prepare(DEL_CONN_USER_SQL)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
-	}
-
-	_, err = statement.Exec(r.Command)
-	if err != nil {
-		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
-	}
-
-	return nil
-}
-
-func (db *RuleDB) GetAllConnEntries() ([]ConnCacheEntry, error) {
-	entries := make([]ConnCacheEntry, MAX_CACHE_SIZE)
-
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
-
-	response, err := db.conn.Query(GET_ALL_CONN_SQL)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Close()
-
-	for response.Next() {
-		entry := ConnCacheEntry{}
-		err = response.Scan(&entry.Cmd, &entry.Verdict, &entry.DstIp, &entry.DstPort, &entry.Proto, &entry.User)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to parse entry: %v\n", err)
-			continue
-		}
-		entries = append(entries, entry)
-	}
-
-	return entries, nil
-}
-
-func (db *RuleDB) GetAllAppEntries() ([]AppCacheEntry, error) {
-	entries := make([]AppCacheEntry, MAX_CACHE_SIZE)
-
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
-
-	response, err := db.conn.Query(GET_ALL_APP_SQL)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Close()
-
-	for response.Next() {
-		entry := AppCacheEntry{}
-		err = response.Scan(&entry.Cmd, &entry.Verdict)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to parse entry: %v\n", err)
-			continue
-		}
-		entries = append(entries, entry)
-	}
-
-	return entries, nil
 }
 
 func (db *RuleDB) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	verdict := netfilter.NF_UNDEF
 
-	verdict, err := db.GetAppRule(r)
+	db.mutex.RLock()
+	defer db.mutex.RUnlock()
+
+	response, err := db.conn.Query(GET_RULE_BY_CMD_SQL, r.Command)
 	if err != nil {
-		return netfilter.NF_UNDEF, err
+		return verdict, fmt.Errorf("rules: Failed to query app table: %v", err)
+	}
+	defer response.Close()
+
+	isAppRule := true
+	foundRules := []RuleItem{}
+	matchingRule := RuleItem{}
+
+	// Get all rules in database
+	for response.Next() {
+		item := RuleItem{}
+		err = response.Scan(&item.Id, &item.Cmd, &item.Verdict, &item.Dstip,
+			&item.Port, &item.Proto, &item.User, &item.Timestamp, &item.Duration)
+		if err != nil {
+			return netfilter.NF_UNDEF, fmt.Errorf("rules: Failed to get verdict from app table: %v", err)
+		}
+		if item.Dstip != "" {
+			isAppRule = false
+		}
+		foundRules = append(foundRules, item)
 	}
 
-	if verdict != netfilter.NF_UNDEF {
-		return verdict, nil
+	// Return if no rules are found
+	if len(foundRules) == 0 {
+		return netfilter.NF_UNDEF, nil
 	}
 
-	verdict, err = db.GetConnRule(r)
+	// Check if we have a rule which matches on ip+port+proto
+	if !isAppRule {
+		for _, rule := range foundRules {
+			if r.Dstip == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
+				matchingRule = rule
+				break
+			}
+		}
+		if matchingRule.Cmd == "" {
+			return netfilter.NF_UNDEF, nil
+		}
+	} else {
+		matchingRule = foundRules[0]
+	}
+
+	// Check if the rule is expired
+	if matchingRule.Duration != 0 {
+		if time.Since(matchingRule.Timestamp) > matchingRule.Duration {
+			db.DeleteRule(matchingRule.Id)
+			return netfilter.NF_UNDEF, nil
+		}
+	}
+
+	// Check if the rule matches the requested user
+	if matchingRule.User == USER_ANY || matchingRule.User == r.User {
+		return matchingRule.Verdict, nil
+	}
+
+	return netfilter.NF_UNDEF, nil
+}
+
+func (db *RuleDB) AddAppRule(r snitch.ConnRequest, action int) error {
+	db.mutex.Lock()
+
+	verdict := netfilter.NF_UNDEF
+	switch action {
+	case snitch.DROP_APP_ALWAYS_USER, snitch.DROP_APP_ALWAYS_SYSTEM:
+		{
+			verdict = netfilter.NF_DROP
+		}
+	case snitch.ACCEPT_APP_ALWAYS_USER, snitch.ACCEPT_APP_ALWAYS_SYSTEM:
+		{
+			verdict = netfilter.NF_ACCEPT
+		}
+	}
+
+	statement, err := db.conn.Prepare(ADD_APP_DURATION_RULE_SQL)
 	if err != nil {
-		return netfilter.NF_UNDEF, err
+		db.mutex.Unlock()
+		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
+	}
+	_, err = statement.Exec(r.Command, verdict, r.User, time.Now(), r.Duration)
+	if err != nil {
+		db.mutex.Unlock()
+		return fmt.Errorf("rules: Failed to execute statement: %v", err)
+	}
+	db.mutex.Unlock()
+
+	return nil
+}
+
+func (db *RuleDB) AddConnRule(r snitch.ConnRequest, action int) error {
+	db.mutex.Lock()
+
+	verdict := netfilter.NF_UNDEF
+	switch action {
+	case snitch.DROP_CONN_ALWAYS_USER, snitch.DROP_CONN_ALWAYS_SYSTEM:
+		{
+			verdict = netfilter.NF_DROP
+		}
+	case snitch.ACCEPT_CONN_ALWAYS_USER, snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
+		{
+			verdict = netfilter.NF_ACCEPT
+		}
 	}
 
-	return verdict, nil
+	statement, err := db.conn.Prepare(ADD_CONN_DURATION_RULE_SQL)
+	if err != nil {
+		db.mutex.Unlock()
+		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
+	}
+	_, err = statement.Exec(r.Command, verdict, r.Dstip, r.Port, r.Proto, r.User, time.Now(), r.Duration)
+	if err != nil {
+		db.mutex.Unlock()
+		return fmt.Errorf("rules: Failed to execute statement: %v", err)
+	}
+	db.mutex.Unlock()
+
+	return nil
+}
+
+func (db *RuleDB) AddRule(r snitch.ConnRequest, action int) error {
+	r.Duration = time.Duration(0)
+
+	switch action {
+	case snitch.DROP_APP_ALWAYS_USER, snitch.DROP_APP_ALWAYS_SYSTEM, snitch.ACCEPT_APP_ALWAYS_USER, snitch.ACCEPT_APP_ALWAYS_SYSTEM:
+		{
+			if err := db.DeleteConnRulesFor(r.Command); err != nil {
+				return fmt.Errorf("Failed to delete conn rules: %v\n", err)
+			}
+			return db.AddAppRule(r, action)
+		}
+	case snitch.DROP_CONN_ALWAYS_USER, snitch.DROP_CONN_ALWAYS_SYSTEM, snitch.ACCEPT_CONN_ALWAYS_USER, snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
+		{
+			// Is conn rule
+			return db.AddConnRule(r, action)
+		}
+	}
+
+	return nil
+}
+
+func (db *RuleDB) DeleteConnRulesFor(cmd string) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	statement, err := db.conn.Prepare(DELETE_CONN_RULE_BY_CMD_SQL)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to prepare statement: %v\n", err)
+	}
+
+	_, err = statement.Exec(cmd)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
+	}
+
+	return nil
+}
+
+func (db *RuleDB) DeleteRule(id int) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	statement, err := db.conn.Prepare(DELETE_RULE_BY_ID_SQL)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to prepare statement: %v\n", err)
+	}
+
+	_, err = statement.Exec(id)
+	if err != nil {
+		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
+	}
+
+	return nil
+}
+
+func (db *RuleDB) GetAllRules() ([]RuleItem, error) {
+	ruleset := []RuleItem{}
+
+	db.mutex.RLock()
+	defer db.mutex.RUnlock()
+
+	response, err := db.conn.Query(GET_ALL_RULES_SQL)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Close()
+
+	for response.Next() {
+		rule := RuleItem{}
+		var dstip sql.NullString
+		var port sql.NullString
+		var proto sql.NullInt64
+
+		err = response.Scan(&rule.Id, &rule.Cmd, &rule.Verdict, &dstip,
+			&port, &proto, &rule.User, &rule.Timestamp, &rule.Duration)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to parse entry: %v\n", err)
+			continue
+		}
+		rule.Dstip = dstip.String
+		rule.Port = port.String
+		rule.Proto = int(proto.Int64)
+
+		ruleset = append(ruleset, rule)
+	}
+
+	return ruleset, nil
 }

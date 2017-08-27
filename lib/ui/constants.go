@@ -1,8 +1,9 @@
 package ui
 
 import (
-	"github.com/r3boot/go-snitch/lib/rules"
+	"time"
 
+	"github.com/godbus/dbus"
 	"github.com/mattn/go-gtk/gtk"
 )
 
@@ -10,7 +11,7 @@ const (
 	WINDOW_WIDTH  int = 450
 	WINDOW_HEIGHT int = 300
 
-	MANAGE_WINDOW_WIDTH  int = 750
+	MANAGE_WINDOW_WIDTH  int = 810
 	MANAGE_WINDOW_HEIGHT int = 500
 
 	MANAGE_DETAIL_WIDTH  int = 400
@@ -27,6 +28,14 @@ const (
 
 	ACTION_ACCEPT int = 0
 	ACTION_DROP   int = 1
+
+	UI_NAME   string          = "net.as65342.GoSnitch.Ui"
+	UI_PATH   dbus.ObjectPath = "/net/as65342/GoSnitch/Ui"
+	UI_PATH_S string          = "/net/as65342/GoSnitch/Ui"
+
+	DAEMON_NAME   string          = "net.as65342.GoSnitch.Daemon"
+	DAEMON_PATH   dbus.ObjectPath = "/net/as65342/GoSnitch/Daemon"
+	DAEMON_PATH_S string          = "/net/as65342/GoSnitch/Daemon"
 )
 
 var actionOptions = map[int]string{
@@ -56,7 +65,8 @@ type DialogWindow struct {
 
 type ManageWindow struct {
 	window       *gtk.Window
-	ruleSet      map[string]rules.RuleItem
+	dbus         *DBusUi
+	ruleset      map[int]*Rule
 	ruleTreeview *gtk.TreeView
 	ruleStore    *gtk.TreeStore
 	detail       *ManageDetailWindow
@@ -76,10 +86,51 @@ type ManageDetailWindow struct {
 type StatusIcon struct {
 	icon         *gtk.StatusIcon
 	Dialog       *DialogWindow
-	manageWindow *ManageWindow
-	detailWindow *ManageDetailWindow
+	ManageWindow *ManageWindow
+	DetailWindow *ManageDetailWindow
 	curState     bool
 	menu         *gtk.Menu
 	itemEnable   *gtk.MenuItem
 	itemDisable  *gtk.MenuItem
 }
+
+type RuleDetail struct {
+	Id        int
+	Command   string
+	Dstip     string
+	Port      string
+	Proto     int
+	User      string
+	Action    string
+	Timestamp time.Time
+	Duration  time.Duration
+}
+
+type ConnRule struct {
+	Id        int
+	Dstip     string
+	Port      string
+	Proto     int
+	User      string
+	Action    string
+	Timestamp time.Time
+	Duration  time.Duration
+}
+
+type Rule struct {
+	Id        int
+	Command   string
+	User      string
+	Action    string
+	Timestamp time.Time
+	Duration  time.Duration
+	ConnRules map[int]*ConnRule
+}
+
+type DBusUi struct {
+	conn   *dbus.Conn
+	daemon dbus.BusObject
+	dialog *DialogWindow
+}
+
+type Verdict int

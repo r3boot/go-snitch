@@ -3,23 +3,24 @@ package dbus
 import (
 	"github.com/godbus/dbus"
 
-	"github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/rules"
 )
 
 const (
-	NAME   string          = "net.as65342.GoSnitch"
-	PATH   dbus.ObjectPath = "/net/as65342/GoSnitch"
-	PATH_S string          = "/net/as65342/GoSnitch"
+	DAEMON_NAME   string          = "net.as65342.GoSnitch.Daemon"
+	DAEMON_PATH   dbus.ObjectPath = "/net/as65342/GoSnitch/Daemon"
+	DAEMON_PATH_S string          = "/net/as65342/GoSnitch/Daemon"
+
+	UI_NAME   string          = "net.as65342.GoSnitch.Ui"
+	UI_PATH   dbus.ObjectPath = "/net/as65342/GoSnitch/Ui"
+	UI_PATH_S string          = "/net/as65342/GoSnitch/Ui"
 )
 
-type DBusClient struct {
+type DBusDaemon struct {
 	conn *dbus.Conn
-	obj  dbus.BusObject
+	ui   dbus.BusObject
 }
 
-type DBusServer struct {
-	conn   *dbus.Conn
-	dialog *ui.DialogWindow
-}
+type Ruleset []rules.RuleItem
 
-type Verdict int
+type Base int

@@ -18,7 +18,7 @@ import (
 	"github.com/r3boot/go-snitch/lib/snitch"
 )
 
-func getIANAName(proto, port string) string {
+func getIANAName(proto int, port string) string {
 	result := "unknown"
 
 	fd, err := os.Open("/etc/services")
@@ -27,7 +27,19 @@ func getIANAName(proto, port string) string {
 	}
 	defer fd.Close()
 
-	reLine := regexp.MustCompile(fmt.Sprintf("^([a-z0-9-_]+)\\ +%s/%s$", port, proto))
+	protoName := ""
+	switch proto {
+	case snitch.PROTO_TCP:
+		{
+			protoName = "tcp"
+		}
+	case snitch.PROTO_UDP:
+		{
+			protoName = "udp"
+		}
+	}
+
+	reLine := regexp.MustCompile(fmt.Sprintf("^([a-z0-9-_]+)\\ +%s/%d$", port, protoName))
 
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
@@ -355,17 +367,17 @@ func (dw *DialogWindow) Allow() {
 
 func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
 	appname := fmt.Sprintf("<b>%s wants to connect to the network</b>", path.Base(strings.Split(r.Command, " ")[0]))
-	portName := getIANAName(strings.ToLower(r.Proto), r.DstPort)
+	portName := getIANAName(r.Proto, r.Port)
 
-	port := fmt.Sprintf("%s/%s", r.Proto, r.DstPort)
+	port := fmt.Sprintf("%s/%s", r.Proto, r.Port)
 	if portName != "" {
 		port = fmt.Sprintf("%s (%s)", port, portName)
 	}
 
-	destip := r.DstIp
+	destip := r.Dstip
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	names, err := net.DefaultResolver.LookupAddr(ctx, r.DstIp)
+	names, err := net.DefaultResolver.LookupAddr(ctx, r.Dstip)
 	defer cancel()
 
 	if err == nil && len(names) > 0 {

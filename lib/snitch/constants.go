@@ -1,5 +1,9 @@
 package snitch
 
+import (
+	"time"
+)
+
 const (
 	DROP_CONN_ONCE_USER      int = 0
 	DROP_CONN_SESSION_USER   int = 1
@@ -28,16 +32,21 @@ const (
 	ACCEPT_APP_ALWAYS_SYSTEM   int = 31
 
 	UNKNOWN int = 99
+
+	PROTO_UNKNOWN int = 255
+	PROTO_TCP     int = 6
+	PROTO_UDP     int = 17
+	PROTO_IPV4    int = 4
+	PROTO_IPV6    int = 41
 )
 
 type ConnRequest struct {
-	SrcIp   string
-	DstIp   string
-	SrcPort string
-	DstPort string
-	Proto   string
-	Pid     string
-	Command string
-	Cmdline string
-	User    string
+	Dstip    string
+	Port     string
+	Proto    int
+	Pid      string
+	Command  string
+	Cmdline  string
+	User     string
+	Duration time.Duration
 }

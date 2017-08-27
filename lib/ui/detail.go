@@ -3,7 +3,7 @@ package ui
 import (
 	"github.com/r3boot/go-snitch/lib/rules"
 
-	"github.com/mattn/go-gtk/gdk"
+	_ "github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/gtk"
 )
 
@@ -90,9 +90,7 @@ func (md *ManageDetailWindow) Create() {
 }
 
 func (md *ManageDetailWindow) Show() {
-	gdk.ThreadsEnter()
 	md.window.ShowAll()
-	gdk.ThreadsLeave()
 }
 
 func (md *ManageDetailWindow) Hide() {
@@ -115,8 +113,8 @@ func (md *ManageDetailWindow) radioUserChanged() {
 	}
 }
 
-func (md *ManageDetailWindow) SetValues(r rules.RuleDetail) {
-	if r.AppRule {
+func (md *ManageDetailWindow) SetValues(r RuleDetail) {
+	if r.Dstip == "" {
 		md.window.SetTitle("Edit application rule")
 		md.dstipLabel.SetSensitive(false)
 		md.portLabel.SetSensitive(false)
@@ -127,7 +125,7 @@ func (md *ManageDetailWindow) SetValues(r rules.RuleDetail) {
 	}
 	md.commandLabel.SetText(r.Command)
 
-	if r.Scope == "system" {
+	if r.User == rules.USER_ANY {
 		md.radioSystem.SetActive(true)
 		md.userLabelEntry.SetText("Enter manually")
 		md.userLabelEntry.SetSensitive(false)
@@ -137,8 +135,12 @@ func (md *ManageDetailWindow) SetValues(r rules.RuleDetail) {
 		md.userLabelEntry.SetSensitive(true)
 	}
 
-	md.actionLabel.SetActive(r.Action)
+	if r.Action == "accept" {
+		md.actionLabel.SetActive(0)
+	} else {
+		md.actionLabel.SetActive(1)
+	}
 
-	md.dstipLabel.SetText(r.Ip)
+	md.dstipLabel.SetText(r.Dstip)
 	md.portLabel.SetText(r.Port)
 }

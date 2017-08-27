@@ -1,12 +1,11 @@
 package ui
 
 import (
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
-	"github.com/r3boot/go-snitch/lib/rules"
-
-	_ "github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
 )
@@ -25,8 +24,9 @@ func actionToString(action int) string {
 	return "UNSET"
 }
 
-func NewManageWindow(md *ManageDetailWindow) *ManageWindow {
+func NewManageWindow(dbus *DBusUi, md *ManageDetailWindow) *ManageWindow {
 	mw := &ManageWindow{
+		dbus:   dbus,
 		detail: md,
 	}
 	mw.Create()
@@ -43,7 +43,7 @@ func (mw *ManageWindow) Create() {
 	scrollWin := gtk.NewScrolledWindow(nil, nil)
 
 	mw.ruleTreeview = gtk.NewTreeView()
-	mw.ruleStore = gtk.NewTreeStore(glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING)
+	mw.ruleStore = gtk.NewTreeStore(glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING)
 	mw.ruleTreeview.SetModel(mw.ruleStore.ToTreeModel())
 
 	colCommand := gtk.NewTreeViewColumnWithAttributes("Command", gtk.NewCellRendererText(), "text", 1)
@@ -61,8 +61,13 @@ func (mw *ManageWindow) Create() {
 	colPort.SetFixedWidth(50)
 	mw.ruleTreeview.AppendColumn(colPort)
 
-	mw.ruleTreeview.AppendColumn(gtk.NewTreeViewColumnWithAttributes("User", gtk.NewCellRendererText(), "text", 4))
-	mw.ruleTreeview.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Action", gtk.NewCellRendererText(), "text", 5))
+	mw.ruleTreeview.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Proto", gtk.NewCellRendererText(), "text", 4))
+
+	mw.ruleTreeview.AppendColumn(gtk.NewTreeViewColumnWithAttributes("User", gtk.NewCellRendererText(), "text", 5))
+
+	mw.ruleTreeview.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Duration", gtk.NewCellRendererText(), "text", 6))
+
+	mw.ruleTreeview.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Action", gtk.NewCellRendererText(), "text", 7))
 
 	mw.ruleTreeview.Connect("row_activated", mw.TreeViewActivate)
 	scrollWin.Add(mw.ruleTreeview)
@@ -70,30 +75,83 @@ func (mw *ManageWindow) Create() {
 	mw.window.Add(scrollWin)
 }
 
-func (mw *ManageWindow) LoadRules(rules map[string]rules.RuleItem) {
-	mw.ruleSet = rules
-	for i := 0; i <= len(mw.ruleSet); i++ {
-		rule := mw.ruleSet[strconv.Itoa(i)]
+func (mw *ManageWindow) fetchRules() map[int]*Rule {
+	dbRules, err := mw.dbus.GetRules()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dbus: Failed to retrieve rules: %v\n", err)
+	}
+
+	ruleset := make(map[int]*Rule)
+
+	for _, item := range dbRules {
+		ruleId := getRuleId(item.Cmd, ruleset)
+		if ruleId == -1 {
+			newRuleId := len(ruleset)
+			ruleset[newRuleId] = &Rule{
+				Command:   item.Cmd,
+				ConnRules: make(map[int]*ConnRule),
+			}
+			ruleId = newRuleId
+		}
+
+		if item.Dstip != "" {
+			cmdRuleId := getRuleId(item.Cmd, ruleset)
+			if cmdRuleId == -1 {
+				ruleset[ruleId] = &Rule{
+					ConnRules: make(map[int]*ConnRule),
+				}
+				cmdRuleId = len(ruleset[cmdRuleId].ConnRules)
+			}
+
+			connRuleId := len(ruleset[cmdRuleId].ConnRules)
+			if _, ok := ruleset[cmdRuleId].ConnRules[connRuleId]; !ok {
+				ruleset[cmdRuleId].ConnRules[connRuleId] = &ConnRule{}
+			}
+
+			ruleset[cmdRuleId].ConnRules[connRuleId].Id = item.Id
+			ruleset[cmdRuleId].ConnRules[connRuleId].Dstip = item.Dstip
+			ruleset[cmdRuleId].ConnRules[connRuleId].Port = item.Port
+			ruleset[cmdRuleId].ConnRules[connRuleId].Proto = item.Proto
+			ruleset[cmdRuleId].ConnRules[connRuleId].User = item.User
+			ruleset[cmdRuleId].ConnRules[connRuleId].Action = VerdictToAction(item.Verdict)
+			ruleset[cmdRuleId].ConnRules[connRuleId].Timestamp = item.Timestamp
+			ruleset[cmdRuleId].ConnRules[connRuleId].Duration = item.Duration
+		} else {
+			ruleset[ruleId].Id = item.Id
+			ruleset[ruleId].User = item.User
+			ruleset[ruleId].Action = VerdictToAction(item.Verdict)
+			ruleset[ruleId].Timestamp = item.Timestamp
+			ruleset[ruleId].Duration = item.Duration
+		}
+	}
+
+	return ruleset
+}
+
+func (mw *ManageWindow) LoadRules() {
+	mw.ruleset = mw.fetchRules()
+
+	for i := 0; i < len(mw.ruleset); i++ {
+		rule := mw.ruleset[i]
 		var iter gtk.TreeIter
 		mw.ruleStore.Append(&iter, nil)
 		mw.ruleStore.SetValue(&iter, 1, rule.Command)
-		if rule.AppRule {
-			if rule.Scope == "system" {
-				mw.ruleStore.SetValue(&iter, 4, rule.Scope)
-			} else {
-				mw.ruleStore.SetValue(&iter, 4, rule.User)
-			}
-			mw.ruleStore.SetValue(&iter, 5, actionToString(rule.Action))
-		} else {
-			for j := 0; j < len(rule.Rules); j++ {
-				conn := rule.Rules[strconv.Itoa(j)]
+		if len(rule.ConnRules) > 0 {
+			for j := 0; j < len(rule.ConnRules); j++ {
+				connRule := rule.ConnRules[j]
 				var connIter gtk.TreeIter
 				mw.ruleStore.Append(&connIter, &iter)
-				mw.ruleStore.SetValue(&connIter, 2, conn.Ip)
-				mw.ruleStore.SetValue(&connIter, 3, conn.Port)
-				mw.ruleStore.SetValue(&connIter, 4, conn.User)
-				mw.ruleStore.SetValue(&connIter, 5, actionToString(conn.Action))
+				mw.ruleStore.SetValue(&connIter, 2, connRule.Dstip)
+				mw.ruleStore.SetValue(&connIter, 3, connRule.Port)
+				mw.ruleStore.SetValue(&connIter, 4, protoToString(connRule.Proto))
+				mw.ruleStore.SetValue(&connIter, 5, connRule.User)
+				mw.ruleStore.SetValue(&connIter, 6, "0")
+				mw.ruleStore.SetValue(&connIter, 7, connRule.Action)
 			}
+		} else {
+			mw.ruleStore.SetValue(&iter, 5, rule.User)
+			mw.ruleStore.SetValue(&iter, 6, "0")
+			mw.ruleStore.SetValue(&iter, 7, rule.Action)
 		}
 	}
 }
@@ -102,51 +160,61 @@ func (mw *ManageWindow) TreeViewActivate() {
 	var path *gtk.TreePath
 	var column *gtk.TreeViewColumn
 	var id string
+	var id_i int
 	var connId string
+	var connId_i int
+
 	mw.ruleTreeview.GetCursor(&path, &column)
 	tokens := strings.Split(path.String(), ":")
-	if mw.ruleTreeview.RowExpanded(path) {
-		mw.ruleTreeview.CollapseRow(path)
-	} else {
-		mw.ruleTreeview.ExpandRow(path, true)
-	}
 	if len(tokens) > 1 {
-		id = strings.Split(path.String(), ":")[0]
-		connId = strings.Split(path.String(), ":")[1]
+		id = tokens[0]
+		id_i, _ = strconv.Atoi(id)
+		connId = tokens[1]
+		connId_i, _ = strconv.Atoi(connId)
 	} else {
-		id = strings.Split(path.String(), ":")[0]
+		id = tokens[0]
+		id_i, _ = strconv.Atoi(id)
 	}
 
-	detail := rules.RuleDetail{}
-	if mw.ruleSet[path.String()].AppRule == true {
-		detail.AppRule = true
-		detail.Command = mw.ruleSet[id].Command
-		if mw.ruleSet[id].Scope == "system" {
-			detail.User = mw.ruleSet[id].Scope
+	fmt.Printf("path: %s\n", path.String())
+	fmt.Printf("id: %d; connId: %d\n", id_i, connId_i)
+	fmt.Printf("ruleset: %v\n", mw.ruleset[id_i])
+
+	if len(mw.ruleset[id_i].ConnRules) > 0 && connId == "" {
+		if mw.ruleTreeview.RowExpanded(path) {
+			mw.ruleTreeview.CollapseRow(path)
 		} else {
-			detail.User = mw.ruleSet[id].User
+			mw.ruleTreeview.ExpandRow(path, true)
 		}
-		detail.Action = mw.ruleSet[id].Action
-		mw.detail.SetValues(detail)
-		mw.detail.Show()
-	} else {
-		if connId != "" {
-			detail.AppRule = false
-			detail.Command = mw.ruleSet[id].Command
-			detail.Ip = mw.ruleSet[id].Rules[connId].Ip
-			detail.Port = mw.ruleSet[id].Rules[connId].Port
-			if mw.ruleSet[id].Rules[connId].Scope == "system" {
-				detail.User = mw.ruleSet[id].Rules[connId].Scope
-			} else {
-				detail.User = mw.ruleSet[id].Rules[connId].User
-			}
-			detail.Action = mw.ruleSet[id].Rules[connId].Action
-			mw.detail.SetValues(detail)
-			mw.detail.Show()
-		}
+		return
 	}
+
+	detail := RuleDetail{}
+
+	if connId == "" {
+		detail.Id = mw.ruleset[id_i].Id
+		detail.Command = mw.ruleset[id_i].Command
+		detail.User = mw.ruleset[id_i].User
+		detail.Duration = mw.ruleset[id_i].Duration
+		detail.Action = mw.ruleset[id_i].Action
+	} else {
+		detail.Id = mw.ruleset[id_i].ConnRules[connId_i].Id
+		detail.Command = mw.ruleset[id_i].Command
+		detail.Dstip = mw.ruleset[id_i].ConnRules[connId_i].Dstip
+		detail.Port = mw.ruleset[id_i].ConnRules[connId_i].Port
+		detail.Proto = mw.ruleset[id_i].ConnRules[connId_i].Proto
+		detail.User = mw.ruleset[id_i].ConnRules[connId_i].User
+		detail.Duration = mw.ruleset[id_i].ConnRules[connId_i].Duration
+		detail.Action = mw.ruleset[id_i].ConnRules[connId_i].Action
+	}
+
+	fmt.Printf("detail :%v\n", detail)
+
+	mw.detail.SetValues(detail)
+	mw.detail.Show()
 }
 
 func (mw *ManageWindow) Show() {
+	mw.LoadRules()
 	mw.window.ShowAll()
 }

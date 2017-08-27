@@ -8,15 +8,13 @@ import (
 	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
 
-	"github.com/r3boot/go-snitch/lib/dbus"
-
 	"github.com/r3boot/go-snitch/lib/ui"
 )
 
 func main() {
 	var (
-		dbusServer *dbus.DBusServer
-		err        error
+		dbusUi *ui.DBusUi
+		err    error
 	)
 
 	glib.ThreadInit(nil)
@@ -25,13 +23,15 @@ func main() {
 	gtk.Init(nil)
 
 	icon := ui.NewStatusIcon()
-	// ui.NewStatusIcon()
 
-	dbusServer = &dbus.DBusServer{}
-	if err = dbusServer.Connect(icon.Dialog); err != nil {
+	dbusUi = &ui.DBusUi{}
+	if err = dbusUi.Connect(icon.Dialog); err != nil {
 		fmt.Fprintf(os.Stderr, "dbusServer:", err)
 		os.Exit(1)
 	}
+
+	icon.DetailWindow = ui.NewManageDetailWindow()
+	icon.ManageWindow = ui.NewManageWindow(dbusUi, icon.DetailWindow)
 
 	gtk.Main()
 	gdk.ThreadsLeave()

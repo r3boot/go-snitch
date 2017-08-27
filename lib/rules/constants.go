@@ -3,55 +3,80 @@ package rules
 import (
 	"database/sql"
 	"sync"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 )
 
+const RULESET_TABLE_SQL string = `CREATE TABLE IF NOT EXISTS ruleset (
+	id INTEGER PRIMARY KEY,
+	cmd TEXT NOT NULL,
+	verdict INTEGER NOT NULL,
+	dstip TEXT,
+	port TEXT,
+	proto INTEGER,
+	user TEXT NOT NULL,
+	timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	duration INTEGER,
+	UNIQUE (cmd, verdict, user, dstip, port, proto, user, duration))`
+
+const ADD_APP_RULE_SQL string = `INSERT INTO ruleset
+	(cmd, verdict, user, timestamp) VALUES (?, ?, ?, ?)`
+
+const ADD_APP_DURATION_RULE_SQL string = `INSERT INTO ruleset
+	(cmd, verdict, user, timestamp, duration) VALUES (?, ?, ?, ?, ?)`
+
+const ADD_CONN_RULE_SQL string = `INSERT INTO ruleset
+	(cmd, verdict, dstip, port, proto, user, timestamp)
+	VALUES (?, ?, ?, ?, ?, ?, ?)`
+
+const ADD_CONN_DURATION_RULE_SQL string = `INSERT INTO ruleset
+	(cmd, verdict, dstip, port, proto, user, timestamp, duration)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+
+const GET_RULE_BY_CMD_SQL string = `SELECT id, cmd, verdict, dstip, dstport,
+	proto, user, timestamp, duration FROM ruleset WHERE cmd = ?`
+
+const DELETE_RULE_BY_ID_SQL string = `DELETE FROM ruleset WHERE id = ?`
+
+const DELETE_CONN_RULE_BY_CMD_SQL string = `DELETE FROM ruleset WHERE
+	cmd = ? AND dstip != ''`
+
+const GET_ALL_RULES_SQL string = `SELECT * FROM ruleset`
+
 const (
-	DB_PATH           string = "/var/lib/go-snitch.db"
-	CONN_TABLE_SQL    string = "CREATE TABLE IF NOT EXISTS conn_rules (cmd TEXT, verdict INTEGER, dstip TEXT, port TEXT, proto TEXT, user TEXT, UNIQUE (cmd, verdict, dstip, port, proto, user))"
-	GET_CONN_SQL      string = "SELECT verdict, user FROM conn_rules WHERE cmd = ? AND dstip = ? AND port = ? AND proto = ?"
-	ADD_CONN_SQL      string = "INSERT OR REPLACE INTO conn_rules VALUES (?, ?, ?, ?, ?, ?)"
-	DEL_CONN_USER_SQL string = "DELETE FROM conn_rules WHERE cmd = ? AND user != '*'"
-	GET_ALL_CONN_SQL  string = "SELECT cmd, verdict, dstip, port, proto, user FROM conn_rules"
-	APP_TABLE_SQL     string = "CREATE TABLE IF NOT EXISTS app_rules (cmd TEXT, verdict INTEGER, user TEXT, UNIQUE (cmd, verdict, user))"
-	GET_APP_SQL       string = "SELECT verdict, user FROM app_rules WHERE cmd = ?"
-	DEL_APP_USER_SQL  string = "DELETE FROM app_rules WHERE cmd = ? AND user != '*'"
-	GET_ALL_APP_SQL   string = "SELECT cmd, verdict, user FROM app_rules"
-	ADD_APP_SQL       string = "INSERT OR REPLACE INTO app_rules VALUES (?, ?, ?)"
-	MAX_CACHE_SIZE    int    = 16384
-	USER_ANY          string = "*"
-	FILTER_USER       int    = 0
-	FILTER_SYSTEM     int    = 1
+	DB_PATH        string = "/var/lib/go-snitch.db"
+	MAX_CACHE_SIZE int    = 16384
+	USER_ANY       string = "*"
+	UNKNOWN_ID     int    = -1
+	FILTER_USER    int    = 0
+	FILTER_SYSTEM  int    = 1
 )
 
-type ConnRule struct {
-	Ip     string
-	Port   string
-	User   string
-	Action int
-	Scope  string
-}
-
 type RuleItem struct {
-	Command string
-	AppRule bool
-	User    string
-	Action  int
-	Scope   string
-	Rules   map[string]ConnRule
+	Id        int
+	Cmd       string
+	Verdict   netfilter.Verdict
+	Dstip     string
+	Port      string
+	Proto     int
+	User      string
+	Timestamp time.Time
+	Duration  time.Duration
 }
 
-type RuleDetail struct {
-	AppRule bool
-	Command string
-	Ip      string
-	Port    string
-	User    string
-	Action  int
-	Scope   string
+type SessionRuleItem struct {
+	Id        int
+	Cmd       string
+	Verdict   int
+	Dstip     string
+	Port      string
+	Proto     int
+	User      string
+	Timestamp time.Time
+	Duration  time.Duration
 }
 
 type RuleDB struct {
@@ -60,45 +85,13 @@ type RuleDB struct {
 	mutex sync.RWMutex
 }
 
-type AppCacheEntry struct {
-	Cmd     string
-	Verdict netfilter.Verdict
-	User    string
-}
-
-type ConnCacheEntry struct {
-	Cmd     string
-	Verdict netfilter.Verdict
-	DstIp   string
-	DstPort string
-	Proto   string
-	User    string
-}
-
-type SessionAppCacheEntry struct {
-	Cmd     string
-	Verdict int
-	User    string
-}
-
-type SessionConnCacheEntry struct {
-	Cmd     string
-	Verdict int
-	DstIp   string
-	DstPort string
-	Proto   string
-	User    string
-}
-
 type RuleCache struct {
-	backend   *RuleDB
-	appCache  []AppCacheEntry
-	connCache []ConnCacheEntry
-	mutex     sync.RWMutex
+	backend *RuleDB
+	ruleset []RuleItem
+	mutex   sync.RWMutex
 }
 
 type SessionCache struct {
-	appCache  []SessionAppCacheEntry
-	connCache []SessionConnCacheEntry
-	mutex     sync.RWMutex
+	ruleset []SessionRuleItem
+	mutex   sync.RWMutex
 }

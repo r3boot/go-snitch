@@ -16,9 +16,6 @@ func NewStatusIcon() *StatusIcon {
 
 	si.Dialog = NewDialogWindow()
 
-	si.detailWindow = NewManageDetailWindow()
-	si.manageWindow = NewManageWindow(si.detailWindow)
-
 	si.menu = gtk.NewMenu()
 
 	si.itemEnable = gtk.NewMenuItemWithLabel("Enable")
@@ -63,8 +60,5 @@ func (si *StatusIcon) DisableFirewall() {
 }
 
 func (si *StatusIcon) EditRuleset() {
-	si.detailWindow = NewManageDetailWindow()
-	si.manageWindow = NewManageWindow(si.detailWindow)
-
-	si.manageWindow.Show()
+	si.ManageWindow.Show()
 }

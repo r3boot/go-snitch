@@ -16,15 +16,9 @@ import (
 
 func main() {
 	var (
-		dbusClient *dbus.DBusClient
+		dbusDaemon *dbus.DBusDaemon
 		err        error
 	)
-
-	dbusClient = &dbus.DBusClient{}
-	if err = dbusClient.Connect(); err != nil {
-		fmt.Fprintf(os.Stderr, "dbusClient:", err)
-		os.Exit(1)
-	}
 
 	nfq, err := netfilter.NewNFQueue(0, 100, netfilter.NF_DEFAULT_PACKET_SIZE)
 	if err != nil {
@@ -39,6 +33,12 @@ func main() {
 	err = rulecache.Prime()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to prime cache: %v\n", err)
+		os.Exit(1)
+	}
+
+	dbusDaemon = &dbus.DBusDaemon{}
+	if err = dbusDaemon.Connect(rulecache); err != nil {
+		fmt.Fprintf(os.Stderr, "dbusDaemon:", err)
 		os.Exit(1)
 	}
 
@@ -101,7 +101,7 @@ func main() {
 				continue
 			}
 
-			action, err := dbusClient.GetVerdict(request)
+			action, err := dbusDaemon.GetVerdict(request)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%v", err)
 				p.SetVerdict(netfilter.NF_DROP)
@@ -109,60 +109,47 @@ func main() {
 			}
 
 			fmt.Printf("Setting verdict via dbus\n")
+			fmt.Printf("Action: %s (%d)\n", rules.DialogVerdictToString(action), action)
 			switch action {
-			case snitch.DROP_CONN_ALWAYS_USER:
+			case snitch.DROP_APP_ALWAYS_USER,
+				snitch.DROP_APP_ALWAYS_SYSTEM,
+				snitch.DROP_CONN_ALWAYS_USER,
+				snitch.DROP_CONN_ALWAYS_SYSTEM:
 				{
 					verdict = netfilter.NF_DROP
-					rulecache.AddConnRule(request, netfilter.NF_DROP, rules.FILTER_USER)
+					if err = rulecache.AddRule(request, action); err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to add rule: %v\n", err)
+					}
 				}
-			case snitch.DROP_CONN_ALWAYS_SYSTEM:
-				{
-					verdict = netfilter.NF_DROP
-					rulecache.AddConnRule(request, netfilter.NF_DROP, rules.FILTER_SYSTEM)
-				}
-			case snitch.DROP_CONN_ONCE_USER, snitch.DROP_CONN_SESSION_USER, snitch.DROP_CONN_ONCE_SYSTEM, snitch.DROP_CONN_SESSION_SYSTEM:
-				{
-					verdict = netfilter.NF_DROP
-				}
-			case snitch.ACCEPT_CONN_ALWAYS_USER:
+			case snitch.ACCEPT_APP_ALWAYS_USER,
+				snitch.ACCEPT_APP_ALWAYS_SYSTEM,
+				snitch.ACCEPT_CONN_ALWAYS_USER,
+				snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
 				{
 					verdict = netfilter.NF_ACCEPT
-					rulecache.AddConnRule(request, netfilter.NF_ACCEPT, rules.FILTER_USER)
+					if err = rulecache.AddRule(request, action); err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to add rule: %v\n", err)
+					}
 				}
-			case snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
-				{
-					verdict = netfilter.NF_ACCEPT
-					rulecache.AddConnRule(request, netfilter.NF_ACCEPT, rules.FILTER_SYSTEM)
-				}
-			case snitch.ACCEPT_CONN_ONCE_USER, snitch.ACCEPT_CONN_SESSION_USER, snitch.ACCEPT_CONN_ONCE_SYSTEM, snitch.ACCEPT_CONN_SESSION_SYSTEM:
-				{
-					verdict = netfilter.NF_ACCEPT
-				}
-			case snitch.DROP_APP_ALWAYS_USER:
-				{
-					verdict = netfilter.NF_DROP
-					rulecache.AddAppRule(request, netfilter.NF_DROP, rules.FILTER_USER)
-				}
-			case snitch.DROP_APP_ALWAYS_SYSTEM:
-				{
-					verdict = netfilter.NF_DROP
-					rulecache.AddAppRule(request, netfilter.NF_DROP, rules.FILTER_SYSTEM)
-				}
-			case snitch.DROP_APP_ONCE_USER, snitch.DROP_APP_SESSION_USER, snitch.DROP_APP_ONCE_SYSTEM, snitch.DROP_APP_SESSION_SYSTEM:
+			case snitch.DROP_CONN_ONCE_USER,
+				snitch.DROP_CONN_SESSION_USER,
+				snitch.DROP_CONN_ONCE_SYSTEM,
+				snitch.DROP_CONN_SESSION_SYSTEM,
+				snitch.DROP_APP_ONCE_USER,
+				snitch.DROP_APP_SESSION_USER,
+				snitch.DROP_APP_ONCE_SYSTEM,
+				snitch.DROP_APP_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_DROP
 				}
-			case snitch.ACCEPT_APP_ALWAYS_USER:
-				{
-					verdict = netfilter.NF_ACCEPT
-					rulecache.AddAppRule(request, netfilter.NF_ACCEPT, rules.FILTER_USER)
-				}
-			case snitch.ACCEPT_APP_ALWAYS_SYSTEM:
-				{
-					verdict = netfilter.NF_ACCEPT
-					rulecache.AddAppRule(request, netfilter.NF_ACCEPT, rules.FILTER_SYSTEM)
-				}
-			case snitch.ACCEPT_APP_ONCE_USER, snitch.ACCEPT_APP_SESSION_USER, snitch.ACCEPT_APP_ONCE_SYSTEM, snitch.ACCEPT_APP_SESSION_SYSTEM:
+			case snitch.ACCEPT_CONN_ONCE_USER,
+				snitch.ACCEPT_CONN_SESSION_USER,
+				snitch.ACCEPT_CONN_ONCE_SYSTEM,
+				snitch.ACCEPT_CONN_SESSION_SYSTEM,
+				snitch.ACCEPT_APP_ONCE_USER,
+				snitch.ACCEPT_APP_SESSION_USER,
+				snitch.ACCEPT_APP_ONCE_SYSTEM,
+				snitch.ACCEPT_APP_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_ACCEPT
 				}
@@ -179,5 +166,4 @@ func main() {
 			}
 		}
 	}
-
 }
