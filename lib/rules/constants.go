@@ -7,6 +7,8 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/mattn/go-gtk/gtk"
+
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 )
 
@@ -93,6 +95,7 @@ type RuleDetail struct {
 	Action    string
 	RuleType  int
 	Verdict   int
+	RowPath   *gtk.TreePath
 	Timestamp time.Time
 	Duration  time.Duration
 }

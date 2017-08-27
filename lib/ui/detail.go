@@ -160,6 +160,7 @@ func (md *ManageDetailWindow) UpdateRule() {
 	}
 
 	md.manageWindow.LoadRules()
+	md.manageWindow.RestoreRowExpand()
 }
 
 func (md *ManageDetailWindow) DeleteRule() {
@@ -180,6 +181,8 @@ func (md *ManageDetailWindow) DeleteRule() {
 	}
 
 	md.manageWindow.LoadRules()
+	md.manageWindow.DeleteRowExpand(md.rule.RowPath.String())
+	md.manageWindow.RestoreRowExpand()
 }
 
 func (md *ManageDetailWindow) radioUserChanged() {

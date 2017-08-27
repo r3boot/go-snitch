@@ -69,13 +69,14 @@ type DialogWindow struct {
 }
 
 type ManageWindow struct {
-	window       *gtk.Window
-	dbus         *DBusUi
-	cache        *rules.SessionCache
-	ruleset      map[int]*Rule
-	ruleTreeview *gtk.TreeView
-	ruleStore    *gtk.TreeStore
-	detailWindow *ManageDetailWindow
+	window         *gtk.Window
+	dbus           *DBusUi
+	cache          *rules.SessionCache
+	ruleset        map[int]*Rule
+	ruleTreeview   *gtk.TreeView
+	treeviewExpand map[string]bool
+	ruleStore      *gtk.TreeStore
+	detailWindow   *ManageDetailWindow
 }
 
 type ManageDetailWindow struct {
@@ -117,15 +118,16 @@ type ConnRule struct {
 }
 
 type Rule struct {
-	Id        int
-	Command   string
-	User      string
-	Action    string
-	Verdict   int
-	Timestamp time.Time
-	RuleType  int
-	Duration  time.Duration
-	ConnRules map[int]*ConnRule
+	Id          int
+	Command     string
+	User        string
+	Action      string
+	Verdict     int
+	Timestamp   time.Time
+	RuleType    int
+	Duration    time.Duration
+	RowExpanded bool
+	ConnRules   map[int]*ConnRule
 }
 
 type DBusUi struct {

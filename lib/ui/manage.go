@@ -28,7 +28,8 @@ func actionToString(action int) string {
 
 func NewManageWindow(dbus *DBusUi) *ManageWindow {
 	mw := &ManageWindow{
-		dbus: dbus,
+		dbus:           dbus,
+		treeviewExpand: make(map[string]bool),
 	}
 	mw.Create()
 	return mw
@@ -135,8 +136,6 @@ func (mw *ManageWindow) fetchRules() map[int]*Rule {
 		fmt.Fprintf(os.Stderr, "mw.fetchRules: Failed to load session rules: %v\n", err)
 	}
 
-	fmt.Printf("sessionRules: %v\n", sessionRules)
-
 	for _, item := range sessionRules {
 		ruleId := getRuleId(item.Cmd, ruleset)
 		if ruleId == -1 {
@@ -220,6 +219,31 @@ func (mw *ManageWindow) LoadRules() {
 	}
 }
 
+func (mw *ManageWindow) RestoreRowExpand() {
+	fmt.Printf("mw.treeviewExpand: %v\n", mw.treeviewExpand)
+	for path_s, expanded := range mw.treeviewExpand {
+		if !expanded {
+			continue
+		}
+		path := gtk.NewTreePathFromString(path_s)
+		mw.ruleTreeview.ExpandRow(path, true)
+	}
+}
+
+func (mw *ManageWindow) DeleteRowExpand(path string) {
+	delete(mw.treeviewExpand, path)
+}
+
+func (mw *ManageWindow) ToggleRowExpand(path *gtk.TreePath) {
+	if mw.ruleTreeview.RowExpanded(path) {
+		mw.ruleTreeview.CollapseRow(path)
+		mw.treeviewExpand[path.String()] = false
+	} else {
+		mw.ruleTreeview.ExpandRow(path, true)
+		mw.treeviewExpand[path.String()] = true
+	}
+}
+
 func (mw *ManageWindow) TreeViewActivate() {
 	var path *gtk.TreePath
 	var column *gtk.TreeViewColumn
@@ -241,15 +265,13 @@ func (mw *ManageWindow) TreeViewActivate() {
 	}
 
 	if len(mw.ruleset[id_i].ConnRules) > 0 && connId == "" {
-		if mw.ruleTreeview.RowExpanded(path) {
-			mw.ruleTreeview.CollapseRow(path)
-		} else {
-			mw.ruleTreeview.ExpandRow(path, true)
-		}
+		mw.ToggleRowExpand(path)
 		return
 	}
 
-	detail := rules.RuleDetail{}
+	detail := rules.RuleDetail{
+		RowPath: gtk.NewTreePathFromString(id),
+	}
 
 	if connId == "" {
 		detail.Id = mw.ruleset[id_i].Id

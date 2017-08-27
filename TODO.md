@@ -17,4 +17,5 @@
 - Make base types of dbus servers logical
 - Add authentication mechanism for dbus calls
 - Cleanup fetchRules()
-- Remember treeview path on close of detail window
+- Save RDNS on new rule
+- Fix row expand on rule delete in manage ui
