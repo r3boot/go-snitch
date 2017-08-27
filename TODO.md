@@ -4,9 +4,7 @@
 - Fix ipv6 (Failed to get packet details: readlink /proc//exe: no such file or directory, no pid found??)
 - Close dialog window after tcp-timeout seconds (120)
 - Rework GetConnRequest to properly detect ipv6 packets over tap interfaces
-- [wip] Add application to manage existing ruleset
 - Fix ipv6 detection on tap interface
-- Add notification area icon to manage ui
 - Write documentation
 - Add configuration possibilities
 - Implement per-domain filtering
@@ -14,7 +12,6 @@
 - Add possibility to time-limit connections
 - Simplify rule database
 - Add time-based rules
-- Make proto field an int
 - Convert RuleDetail.Action to int
 - Make naming of widgets more consistent
 - Make base types of dbus servers logical
