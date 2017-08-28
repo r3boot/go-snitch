@@ -16,9 +16,11 @@ ${UI}:
 	go build -v -o "${BUILD_DIR}/${UI}" "${COMMANDS_DIR}/${UI}/main.go"
 
 install:
-	install -o root -g root -m 0755 build/go-snitch \
+	strip ${BUILD_DIR}/go-snitch
+	install -o root -g root -m 0755 ${BUILD_DIR}/go-snitch \
 		${PREFIX}/bin/go-snitch
-	install -o root -g root -m 0755 build/go-snitch-ui \
+	strip ${BUILD_DIR}/go-snitch-ui
+	install -o root -g root -m 0755 ${BUILD_DIR}/go-snitch-ui \
 		${PREFIX}/bin/go-snitch-ui
 	install -o root -g root -m 0644 files/net.as65342.GoSnitch.conf \
 		/etc/dbus-1/system.d/net.as65342.GoSnitch.conf
