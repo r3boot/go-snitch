@@ -45,6 +45,56 @@ func (mw *ManageWindow) Create() {
 	mw.window.SetSizeRequest(MANAGE_WINDOW_WIDTH, MANAGE_WINDOW_HEIGHT)
 	mw.window.Connect("delete-event", mw.Hide)
 
+	vbox := gtk.NewVBox(false, 1)
+
+	menubar := gtk.NewMenuBar()
+
+	menuSeparator := gtk.NewSeparatorMenuItem()
+
+	fileMenu := gtk.NewMenuItemWithMnemonic("_File")
+	fileSubMenu := gtk.NewMenu()
+	fileMenuEnable := gtk.NewMenuItemWithMnemonic("_Enable")
+	fileMenuEnable.Connect("activate", mw.OnFileMenuEnable)
+	fileSubMenu.Append(fileMenuEnable)
+	fileMenuDisable := gtk.NewMenuItemWithMnemonic("_Disable")
+	fileMenuDisable.Connect("activate", mw.OnFileMenuDisable)
+	fileSubMenu.Append(fileMenuDisable)
+	fileSubMenu.Append(menuSeparator)
+	fileMenuClose := gtk.NewMenuItemWithMnemonic("_Close")
+	fileMenuClose.Connect("activate", mw.Hide)
+	fileSubMenu.Append(fileMenuClose)
+	fileMenu.SetSubmenu(fileSubMenu)
+	menubar.Append(fileMenu)
+
+	manageMenu := gtk.NewMenuItemWithMnemonic("_Manage")
+	manageSubMenu := gtk.NewMenu()
+	manageMenuEdit := gtk.NewMenuItemWithMnemonic("_Edit")
+	manageMenuEdit.Connect("activate", mw.OnManageMenuEdit)
+	manageSubMenu.Append(manageMenuEdit)
+	manageMenuDelete := gtk.NewMenuItemWithMnemonic("_Delete")
+	manageMenuDelete.Connect("activate", mw.OnManageMenuDelete)
+	manageSubMenu.Append(manageMenuDelete)
+	manageMenu.SetSubmenu(manageSubMenu)
+	menubar.Append(manageMenu)
+
+	helpMenu := gtk.NewMenuItemWithMnemonic("_Help")
+	helpSubMenu := gtk.NewMenu()
+	helpMenuHelp := gtk.NewMenuItemWithMnemonic("_Get help")
+	helpMenuHelp.Connect("activate", mw.OnHelpMenuHelp)
+	helpSubMenu.Append(helpMenuHelp)
+	helpMenuAbout := gtk.NewMenuItemWithMnemonic("_About")
+	helpMenuAbout.Connect("activate", mw.OnHelpMenuAbout)
+	helpSubMenu.Append(helpMenuAbout)
+	helpMenu.SetSubmenu(helpSubMenu)
+	menubar.Append(helpMenu)
+
+	vbox.PackStart(menubar, false, false, 0)
+
+	notebook := gtk.NewNotebook()
+
+	frameOutbound := gtk.NewFrame("")
+	notebook.AppendPage(frameOutbound, gtk.NewLabel("Outbound"))
+
 	scrollWin := gtk.NewScrolledWindow(nil, nil)
 	scrollWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
@@ -76,6 +126,8 @@ func (mw *ManageWindow) Create() {
 	mw.ruleTreeview.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Action", gtk.NewCellRendererText(), "text", 7))
 
 	mw.ruleTreeview.Connect("row_activated", mw.TreeViewActivate)
+	mw.ruleTreeview.Connect("button-press-event", mw.HandleRowClick)
+
 	scrollWin.Add(mw.ruleTreeview)
 
 	mw.contextMenu = gtk.NewMenu()
@@ -90,9 +142,35 @@ func (mw *ManageWindow) Create() {
 
 	mw.contextMenu.ShowAll()
 
-	mw.ruleTreeview.Connect("button-press-event", mw.HandleRowClick)
+	frameOutbound.Add(scrollWin)
 
-	mw.window.Add(scrollWin)
+	vbox.Add(notebook)
+
+	mw.window.Add(vbox)
+}
+
+func (mw *ManageWindow) OnFileMenuEnable() {
+	fmt.Printf("File Menu Enable\n")
+}
+
+func (mw *ManageWindow) OnFileMenuDisable() {
+	fmt.Printf("File Menu Disable\n")
+}
+
+func (mw *ManageWindow) OnManageMenuEdit() {
+	fmt.Printf("Manage Menu Edit\n")
+}
+
+func (mw *ManageWindow) OnManageMenuDelete() {
+	fmt.Printf("Manage Menu Delete\n")
+}
+
+func (mw *ManageWindow) OnHelpMenuHelp() {
+	fmt.Printf("Help Menu Help\n")
+}
+
+func (mw *ManageWindow) OnHelpMenuAbout() {
+	fmt.Printf("Help Menu About\n")
 }
 
 func (mw *ManageWindow) HandleRowClick(ctx *glib.CallbackContext) {
@@ -100,20 +178,17 @@ func (mw *ManageWindow) HandleRowClick(ctx *glib.CallbackContext) {
 	event := *(**gdk.EventButton)(unsafe.Pointer(&arg))
 
 	if gdk.EventType(event.Type) == gdk.BUTTON_PRESS && event.Button == 3 {
-		selection := mw.ruleTreeview.GetSelection()
-		var path *gtk.TreePath
-		var column *gtk.TreeViewColumn
-		mw.ruleTreeview.GetCursor(&path, &column)
-		selection.SelectPath(path)
 
 		path, detail := mw.GetRuleDetail()
 		if detail == nil {
 			return
 		}
 
-		fmt.Printf("path: %v\n", path)
+		selection := mw.ruleTreeview.GetSelection()
+		selection.UnselectAll()
+		selection.SelectPath(path)
 
-		mw.contextMenu.Popup(nil, nil, nil, mw.ruleTreeview, uint(ctx.Args(0)), uint32(ctx.Args(1)))
+		mw.contextMenu.Popup(nil, nil, nil, mw.ruleTreeview, uint(0), uint32(0))
 	}
 }
 
@@ -174,7 +249,23 @@ func (mw *ManageWindow) EditRule() {
 }
 
 func (mw *ManageWindow) DeleteRule() {
-	fmt.Printf("Delete rule\n")
+	_, rule := mw.GetRuleDetail()
+	switch rule.RuleType {
+	case RULE_DB:
+		{
+			if err := mw.dbus.DeleteRule(rule.Id); err != nil {
+				fmt.Fprintf(os.Stderr, "mw.DeleteRule: %v\n", err)
+				return
+			}
+		}
+	case RULE_SESSION:
+		{
+			mw.cache.DeleteRule(rule.Id)
+		}
+	}
+
+	mw.LoadRules()
+	mw.RestoreRowExpand()
 }
 
 func (mw *ManageWindow) fetchRules() map[int]*Rule {
