@@ -5,7 +5,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unsafe"
 
+	"github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
 
@@ -44,6 +46,7 @@ func (mw *ManageWindow) Create() {
 	mw.window.Connect("delete-event", mw.Hide)
 
 	scrollWin := gtk.NewScrolledWindow(nil, nil)
+	scrollWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
 	mw.ruleTreeview = gtk.NewTreeView()
 	mw.ruleStore = gtk.NewTreeStore(glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING)
@@ -75,7 +78,103 @@ func (mw *ManageWindow) Create() {
 	mw.ruleTreeview.Connect("row_activated", mw.TreeViewActivate)
 	scrollWin.Add(mw.ruleTreeview)
 
+	mw.contextMenu = gtk.NewMenu()
+
+	menuEdit := gtk.NewMenuItemWithLabel("Edit")
+	menuEdit.Connect("activate", mw.EditRule)
+	mw.contextMenu.Add(menuEdit)
+
+	menuDelete := gtk.NewMenuItemWithLabel("Delete")
+	menuDelete.Connect("activate", mw.DeleteRule)
+	mw.contextMenu.Add(menuDelete)
+
+	mw.contextMenu.ShowAll()
+
+	mw.ruleTreeview.Connect("button-press-event", mw.HandleRowClick)
+
 	mw.window.Add(scrollWin)
+}
+
+func (mw *ManageWindow) HandleRowClick(ctx *glib.CallbackContext) {
+	arg := ctx.Args(0)
+	event := *(**gdk.EventButton)(unsafe.Pointer(&arg))
+
+	if gdk.EventType(event.Type) == gdk.BUTTON_PRESS && event.Button == 3 {
+		selection := mw.ruleTreeview.GetSelection()
+		var path *gtk.TreePath
+		var column *gtk.TreeViewColumn
+		mw.ruleTreeview.GetCursor(&path, &column)
+		selection.SelectPath(path)
+
+		path, detail := mw.GetRuleDetail()
+		if detail == nil {
+			return
+		}
+
+		fmt.Printf("path: %v\n", path)
+
+		mw.contextMenu.Popup(nil, nil, nil, mw.ruleTreeview, uint(ctx.Args(0)), uint32(ctx.Args(1)))
+	}
+}
+
+func (mw *ManageWindow) GetRuleDetail() (*gtk.TreePath, *rules.RuleDetail) {
+	var path *gtk.TreePath
+	var column *gtk.TreeViewColumn
+	var id, connId string
+	var id_i, connId_i int
+
+	mw.ruleTreeview.GetCursor(&path, &column)
+	tokens := strings.Split(path.String(), ":")
+	if len(tokens) > 1 {
+		id = tokens[0]
+		id_i, _ = strconv.Atoi(id)
+		connId = tokens[1]
+		connId_i, _ = strconv.Atoi(connId)
+	} else {
+		id = tokens[0]
+		id_i, _ = strconv.Atoi(id)
+	}
+
+	if len(mw.ruleset[id_i].ConnRules) > 0 && connId == "" {
+		return path, nil
+	}
+
+	detail := &rules.RuleDetail{
+		RowPath: gtk.NewTreePathFromString(id),
+	}
+
+	if connId == "" {
+		detail.Id = mw.ruleset[id_i].Id
+		detail.Command = mw.ruleset[id_i].Command
+		detail.User = mw.ruleset[id_i].User
+		detail.Duration = mw.ruleset[id_i].Duration
+		detail.Action = mw.ruleset[id_i].Action
+		detail.Verdict = mw.ruleset[id_i].Verdict
+		detail.RuleType = mw.ruleset[id_i].RuleType
+	} else {
+		detail.Id = mw.ruleset[id_i].ConnRules[connId_i].Id
+		detail.Command = mw.ruleset[id_i].Command
+		detail.Dstip = mw.ruleset[id_i].ConnRules[connId_i].Dstip
+		detail.Port = mw.ruleset[id_i].ConnRules[connId_i].Port
+		detail.Proto = mw.ruleset[id_i].ConnRules[connId_i].Proto
+		detail.User = mw.ruleset[id_i].ConnRules[connId_i].User
+		detail.Duration = mw.ruleset[id_i].ConnRules[connId_i].Duration
+		detail.Action = mw.ruleset[id_i].ConnRules[connId_i].Action
+		detail.Verdict = mw.ruleset[id_i].ConnRules[connId_i].Verdict
+		detail.RuleType = mw.ruleset[id_i].RuleType
+	}
+
+	return path, detail
+}
+
+func (mw *ManageWindow) EditRule() {
+	_, detail := mw.GetRuleDetail()
+	mw.detailWindow.SetValues(*detail)
+	mw.detailWindow.Show()
+}
+
+func (mw *ManageWindow) DeleteRule() {
+	fmt.Printf("Delete rule\n")
 }
 
 func (mw *ManageWindow) fetchRules() map[int]*Rule {
@@ -245,56 +344,14 @@ func (mw *ManageWindow) ToggleRowExpand(path *gtk.TreePath) {
 }
 
 func (mw *ManageWindow) TreeViewActivate() {
-	var path *gtk.TreePath
-	var column *gtk.TreeViewColumn
-	var id string
-	var id_i int
-	var connId string
-	var connId_i int
+	path, detail := mw.GetRuleDetail()
 
-	mw.ruleTreeview.GetCursor(&path, &column)
-	tokens := strings.Split(path.String(), ":")
-	if len(tokens) > 1 {
-		id = tokens[0]
-		id_i, _ = strconv.Atoi(id)
-		connId = tokens[1]
-		connId_i, _ = strconv.Atoi(connId)
-	} else {
-		id = tokens[0]
-		id_i, _ = strconv.Atoi(id)
-	}
-
-	if len(mw.ruleset[id_i].ConnRules) > 0 && connId == "" {
+	if detail == nil {
 		mw.ToggleRowExpand(path)
 		return
 	}
 
-	detail := rules.RuleDetail{
-		RowPath: gtk.NewTreePathFromString(id),
-	}
-
-	if connId == "" {
-		detail.Id = mw.ruleset[id_i].Id
-		detail.Command = mw.ruleset[id_i].Command
-		detail.User = mw.ruleset[id_i].User
-		detail.Duration = mw.ruleset[id_i].Duration
-		detail.Action = mw.ruleset[id_i].Action
-		detail.Verdict = mw.ruleset[id_i].Verdict
-		detail.RuleType = mw.ruleset[id_i].RuleType
-	} else {
-		detail.Id = mw.ruleset[id_i].ConnRules[connId_i].Id
-		detail.Command = mw.ruleset[id_i].Command
-		detail.Dstip = mw.ruleset[id_i].ConnRules[connId_i].Dstip
-		detail.Port = mw.ruleset[id_i].ConnRules[connId_i].Port
-		detail.Proto = mw.ruleset[id_i].ConnRules[connId_i].Proto
-		detail.User = mw.ruleset[id_i].ConnRules[connId_i].User
-		detail.Duration = mw.ruleset[id_i].ConnRules[connId_i].Duration
-		detail.Action = mw.ruleset[id_i].ConnRules[connId_i].Action
-		detail.Verdict = mw.ruleset[id_i].ConnRules[connId_i].Verdict
-		detail.RuleType = mw.ruleset[id_i].RuleType
-	}
-
-	mw.detailWindow.SetValues(detail)
+	mw.detailWindow.SetValues(*detail)
 	mw.detailWindow.Show()
 }
 

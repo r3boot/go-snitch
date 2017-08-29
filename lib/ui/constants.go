@@ -72,11 +72,12 @@ type ManageWindow struct {
 	window         *gtk.Window
 	dbus           *DBusUi
 	cache          *rules.SessionCache
+	detailWindow   *ManageDetailWindow
 	ruleset        map[int]*Rule
 	ruleTreeview   *gtk.TreeView
 	treeviewExpand map[string]bool
 	ruleStore      *gtk.TreeStore
-	detailWindow   *ManageDetailWindow
+	contextMenu    *gtk.Menu
 }
 
 type ManageDetailWindow struct {
