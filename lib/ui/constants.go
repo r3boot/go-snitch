@@ -69,15 +69,19 @@ type DialogWindow struct {
 }
 
 type ManageWindow struct {
-	window         *gtk.Window
-	dbus           *DBusUi
-	cache          *rules.SessionCache
-	detailWindow   *ManageDetailWindow
-	ruleset        map[int]*Rule
-	ruleTreeview   *gtk.TreeView
-	treeviewExpand map[string]bool
-	ruleStore      *gtk.TreeStore
-	contextMenu    *gtk.Menu
+	window           *gtk.Window
+	dbus             *DBusUi
+	cache            *rules.SessionCache
+	detailWindow     *ManageDetailWindow
+	ruleset          map[int]*Rule
+	fileMenuEnable   *gtk.MenuItem
+	fileMenuDisable  *gtk.MenuItem
+	manageMenuEdit   *gtk.MenuItem
+	manageMenuDelete *gtk.MenuItem
+	ruleTreeview     *gtk.TreeView
+	treeviewExpand   map[string]bool
+	ruleStore        *gtk.TreeStore
+	contextMenu      *gtk.Menu
 }
 
 type ManageDetailWindow struct {

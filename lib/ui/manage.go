@@ -53,27 +53,32 @@ func (mw *ManageWindow) Create() {
 
 	fileMenu := gtk.NewMenuItemWithMnemonic("_File")
 	fileSubMenu := gtk.NewMenu()
-	fileMenuEnable := gtk.NewMenuItemWithMnemonic("_Enable")
-	fileMenuEnable.Connect("activate", mw.OnFileMenuEnable)
-	fileSubMenu.Append(fileMenuEnable)
-	fileMenuDisable := gtk.NewMenuItemWithMnemonic("_Disable")
-	fileMenuDisable.Connect("activate", mw.OnFileMenuDisable)
-	fileSubMenu.Append(fileMenuDisable)
+	mw.fileMenuEnable = gtk.NewMenuItemWithMnemonic("_Enable")
+	mw.fileMenuEnable.Connect("activate", mw.OnFileMenuEnable)
+	fileSubMenu.Append(mw.fileMenuEnable)
+
+	mw.fileMenuDisable = gtk.NewMenuItemWithMnemonic("_Disable")
+	mw.fileMenuDisable.Connect("activate", mw.OnFileMenuDisable)
+	fileSubMenu.Append(mw.fileMenuDisable)
+
 	fileSubMenu.Append(menuSeparator)
 	fileMenuClose := gtk.NewMenuItemWithMnemonic("_Close")
 	fileMenuClose.Connect("activate", mw.Hide)
 	fileSubMenu.Append(fileMenuClose)
+
 	fileMenu.SetSubmenu(fileSubMenu)
 	menubar.Append(fileMenu)
 
 	manageMenu := gtk.NewMenuItemWithMnemonic("_Manage")
 	manageSubMenu := gtk.NewMenu()
-	manageMenuEdit := gtk.NewMenuItemWithMnemonic("_Edit")
-	manageMenuEdit.Connect("activate", mw.OnManageMenuEdit)
-	manageSubMenu.Append(manageMenuEdit)
-	manageMenuDelete := gtk.NewMenuItemWithMnemonic("_Delete")
-	manageMenuDelete.Connect("activate", mw.OnManageMenuDelete)
-	manageSubMenu.Append(manageMenuDelete)
+	mw.manageMenuEdit = gtk.NewMenuItemWithMnemonic("_Edit")
+	mw.manageMenuEdit.Connect("activate", mw.OnManageMenuEdit)
+	mw.manageMenuEdit.SetSensitive(false)
+	manageSubMenu.Append(mw.manageMenuEdit)
+	mw.manageMenuDelete = gtk.NewMenuItemWithMnemonic("_Delete")
+	mw.manageMenuDelete.Connect("activate", mw.OnManageMenuDelete)
+	mw.manageMenuDelete.SetSensitive(false)
+	manageSubMenu.Append(mw.manageMenuDelete)
 	manageMenu.SetSubmenu(manageSubMenu)
 	menubar.Append(manageMenu)
 
@@ -127,6 +132,8 @@ func (mw *ManageWindow) Create() {
 
 	mw.ruleTreeview.Connect("row_activated", mw.TreeViewActivate)
 	mw.ruleTreeview.Connect("button-press-event", mw.HandleRowClick)
+	mw.ruleTreeview.Connect("cursor-changed", mw.OnTreeViewRowSelect)
+	mw.ruleTreeview.Connect("unselect-all", mw.OnTreeViewRowUnselect)
 
 	scrollWin.Add(mw.ruleTreeview)
 
@@ -149,6 +156,23 @@ func (mw *ManageWindow) Create() {
 	mw.window.Add(vbox)
 }
 
+func (mw *ManageWindow) OnTreeViewRowSelect() {
+	_, detail := mw.GetRuleDetail()
+	if detail != nil {
+		mw.manageMenuEdit.SetSensitive(true)
+		mw.manageMenuDelete.SetSensitive(true)
+	} else {
+		mw.manageMenuEdit.SetSensitive(false)
+		mw.manageMenuDelete.SetSensitive(false)
+	}
+}
+
+func (mw *ManageWindow) OnTreeViewRowUnselect() {
+	fmt.Printf("OnTreeViewRowUnselect\n")
+	mw.manageMenuEdit.SetSensitive(false)
+	mw.manageMenuDelete.SetSensitive(false)
+}
+
 func (mw *ManageWindow) OnFileMenuEnable() {
 	fmt.Printf("File Menu Enable\n")
 }
@@ -158,11 +182,16 @@ func (mw *ManageWindow) OnFileMenuDisable() {
 }
 
 func (mw *ManageWindow) OnManageMenuEdit() {
-	fmt.Printf("Manage Menu Edit\n")
+	_, detail := mw.GetRuleDetail()
+	if detail == nil {
+		return
+	}
+	mw.detailWindow.SetValues(*detail)
+	mw.detailWindow.Show()
 }
 
 func (mw *ManageWindow) OnManageMenuDelete() {
-	fmt.Printf("Manage Menu Delete\n")
+	mw.DeleteRule()
 }
 
 func (mw *ManageWindow) OnHelpMenuHelp() {
