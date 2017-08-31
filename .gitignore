@@ -1,3 +1,6 @@
 build
 *.swp
 rules.db
+glade.go
+*.glade~
+.idea

@@ -9,15 +9,12 @@ import (
 	"github.com/mattn/go-gtk/gtk"
 
 	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/ui"
+	// "github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/ui/icon"
+	"github.com/r3boot/go-snitch/lib/ui/ipc"
 )
 
 func main() {
-	var (
-		dbusUi *ui.DBusUi
-		err    error
-	)
-
 	glib.ThreadInit(nil)
 	gdk.ThreadsInit()
 	gdk.ThreadsEnter()
@@ -25,22 +22,24 @@ func main() {
 
 	sessionCache := rules.NewSessionCache()
 
-	icon := ui.NewStatusIcon()
+	icon := icon.NewStatusIcon()
 
-	dbusUi = &ui.DBusUi{}
-	if err = dbusUi.Connect(icon.Dialog, sessionCache); err != nil {
-		fmt.Fprintf(os.Stderr, "dbusServer:", err)
+	bus, err := ipc.NewIPCService(icon.Dialog, sessionCache)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: ", err)
 		os.Exit(1)
 	}
 
-	icon.DetailWindow = ui.NewManageDetailWindow(dbusUi)
-	icon.ManageWindow = ui.NewManageWindow(dbusUi)
+	/*
+		icon.DetailWindow = ui.NewManageDetailWindow(dbusUi)
+		icon.ManageWindow = ui.NewManageWindow(dbusUi)
 
-	icon.ManageWindow.SetDetailWindow(icon.DetailWindow)
-	icon.ManageWindow.SetSessionCache(sessionCache)
+		icon.ManageWindow.SetDetailWindow(icon.DetailWindow)
+		icon.ManageWindow.SetSessionCache(sessionCache)
 
-	icon.DetailWindow.SetManageWindow(icon.ManageWindow)
-	icon.DetailWindow.SetSessionCache(sessionCache)
+		icon.DetailWindow.SetManageWindow(icon.ManageWindow)
+		icon.DetailWindow.SetSessionCache(sessionCache)
+	*/
 
 	gtk.Main()
 	gdk.ThreadsLeave()
