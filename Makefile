@@ -3,9 +3,13 @@ UI = go-snitch-ui
 
 BUILD_DIR = ./build
 COMMANDS_DIR = ./commands
+HELPERS_DIR = ./helpers
 PREFIX = /usr/local
 
 all: ${DAEMON} ${UI}
+
+glade:
+	${HELPERS_DIR}/gen_ui_files.sh
 
 ${DAEMON}:
 	[ -d "${BUILD_DIR}" ] || mkdir -p "${BUILD_DIR}"
@@ -26,4 +30,5 @@ install:
 		/etc/dbus-1/system.d/net.as65342.GoSnitch.conf
 
 clean:
+	find . -name glade.go -exec rm -f {} \;
 	[ -d "${BUILD_DIR}" ] && rm -rf ${BUILD_DIR} || true
