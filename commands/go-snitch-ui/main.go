@@ -9,9 +9,10 @@ import (
 	"github.com/mattn/go-gtk/gtk"
 
 	"github.com/r3boot/go-snitch/lib/rules"
-	// "github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/ui/detail"
 	"github.com/r3boot/go-snitch/lib/ui/icon"
 	"github.com/r3boot/go-snitch/lib/ui/ipc"
+	"github.com/r3boot/go-snitch/lib/ui/manage"
 )
 
 func main() {
@@ -30,16 +31,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	/*
-		icon.DetailWindow = ui.NewManageDetailWindow(dbusUi)
-		icon.ManageWindow = ui.NewManageWindow(dbusUi)
+	icon.DetailDialog = detail.NewManageDetailDialog(bus)
+	icon.ManageWindow = manage.NewManageWindow(bus, icon.DetailDialog, sessionCache)
 
-		icon.ManageWindow.SetDetailWindow(icon.DetailWindow)
-		icon.ManageWindow.SetSessionCache(sessionCache)
+	// icon.ManageWindow.SetDetailWindow(icon.DetailDialog)
+	// icon.ManageWindow.SetSessionCache(sessionCache)
 
-		icon.DetailWindow.SetManageWindow(icon.ManageWindow)
-		icon.DetailWindow.SetSessionCache(sessionCache)
-	*/
+	icon.DetailDialog.SetSessionCache(sessionCache)
 
 	gtk.Main()
 	gdk.ThreadsLeave()

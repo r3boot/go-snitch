@@ -66,6 +66,7 @@ func (b Base) GetRules() (string, *dbus.Error) {
 		fmt.Fprintf(os.Stderr, "Failed to encode json: %v\n", err)
 		return "", nil
 	}
+
 	return string(data), nil
 }
 

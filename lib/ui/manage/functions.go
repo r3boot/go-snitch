@@ -2,12 +2,13 @@ package manage
 
 import (
 	"fmt"
-	"github.com/mattn/go-gtk/gtk"
-	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/ui"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/mattn/go-gtk/gtk"
+	"github.com/r3boot/go-snitch/lib/rules"
+	"github.com/r3boot/go-snitch/lib/ui"
 )
 
 func (mw *ManageWindow) Show() {
@@ -186,23 +187,23 @@ func (mw *ManageWindow) LoadRules() {
 		rule := mw.ruleset[i]
 		var iter gtk.TreeIter
 		mw.ruleStore.Append(&iter, nil)
-		mw.ruleStore.SetValue(&iter, 1, rule.Command)
+		mw.ruleStore.SetValue(&iter, COLUMN_COMMAND, rule.Command)
 		if len(rule.ConnRules) > 0 {
 			for j := 0; j < len(rule.ConnRules); j++ {
 				connRule := rule.ConnRules[j]
 				var connIter gtk.TreeIter
 				mw.ruleStore.Append(&connIter, &iter)
-				mw.ruleStore.SetValue(&connIter, 2, connRule.Dstip)
-				mw.ruleStore.SetValue(&connIter, 3, connRule.Port)
-				mw.ruleStore.SetValue(&connIter, 4, ui.ProtoNameMap[connRule.Proto])
-				mw.ruleStore.SetValue(&connIter, 5, connRule.User)
-				mw.ruleStore.SetValue(&connIter, 6, "0")
-				mw.ruleStore.SetValue(&connIter, 7, connRule.Action)
+				mw.ruleStore.SetValue(&connIter, COLUMN_DESTINATION, connRule.Dstip)
+				mw.ruleStore.SetValue(&connIter, COLUMN_PORT, connRule.Port)
+				mw.ruleStore.SetValue(&connIter, COLUMN_PROTO, ui.ProtoNameMap[connRule.Proto])
+				mw.ruleStore.SetValue(&connIter, COLUMN_USER, connRule.User)
+				mw.ruleStore.SetValue(&connIter, COLUMN_DURATION, "0")
+				mw.ruleStore.SetValue(&connIter, COLUMN_ACTION, connRule.Action)
 			}
 		} else {
-			mw.ruleStore.SetValue(&iter, 5, rule.User)
-			mw.ruleStore.SetValue(&iter, 6, "0")
-			mw.ruleStore.SetValue(&iter, 7, rule.Action)
+			mw.ruleStore.SetValue(&iter, COLUMN_USER, rule.User)
+			mw.ruleStore.SetValue(&iter, COLUMN_DURATION, "0")
+			mw.ruleStore.SetValue(&iter, COLUMN_ACTION, rule.Action)
 		}
 	}
 }

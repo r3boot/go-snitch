@@ -2,66 +2,66 @@ package manage
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
 	"github.com/r3boot/go-snitch/lib/ui"
-	"os"
-	"unsafe"
 )
 
 func (mw *ManageWindow) initCallbacks(builder *gtk.Builder) {
-	mw.window = &gtk.Window{
-		*(*gtk.Window)(
-			unsafe.Pointer(&builder.GetObject("ManageWindow").Object)),
-	}
-
 	builder.ConnectSignalsFull(func(builder *gtk.Builder, obj *glib.GObject,
 		sig, handler string, conn *glib.GObject, flags glib.ConnectFlags,
 		user_data interface{}) {
 		switch handler {
+		case "OnClose":
+			obj.SignalConnect(sig, mw.OnClose, user_data, flags)
 		case "OnFileMenuEnable":
 			obj.SignalConnect(sig, mw.OnFileMenuEnable, user_data, flags)
 		case "OnFileMenuDisable":
 			obj.SignalConnect(sig, mw.OnFileMenuDisable, user_data, flags)
-		case "OnClose":
-			obj.SignalConnect(sig, mw.OnClose, user_data, flags)
 		case "OnRuleMenuAdd":
 			obj.SignalConnect(sig, mw.OnRuleMenuAdd, user_data, flags)
 		case "OnRuleMenuEdit":
 			obj.SignalConnect(sig, mw.OnRuleMenuEdit, user_data, flags)
 		case "OnRuleMenuDelete":
 			obj.SignalConnect(sig, mw.OnRuleMenuDelete, user_data, flags)
-		case "OnHelpMenuGetHelp":
+		case "OnHelpMenuHelp":
 			obj.SignalConnect(sig, mw.OnHelpMenuGetHelp, user_data, flags)
 		case "OnHelpMenuAbout":
 			obj.SignalConnect(sig, mw.OnHelpMenuAbout, user_data, flags)
+		case "OnTreeViewCursorChanged":
+			obj.SignalConnect(sig, mw.OnTreeViewCursorChanged, user_data, flags)
+		case "OnTreeViewRowActivated":
+			obj.SignalConnect(sig, mw.OnTreeViewRowActivated, user_data, flags)
 		}
 	}, nil)
 }
 
-func (mw *ManageWindow) OnClose(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnClose(ctx *glib.CallbackContext) bool {
 	mw.window.Hide()
+	return true
 }
 
-func (mw *ManageWindow) OnFileMenuEnable(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnFileMenuEnable(ctx *glib.CallbackContext) {
 	fmt.Printf("File Menu Enable\n")
 }
 
-func (mw *ManageWindow) OnFileMenuDisable(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnFileMenuDisable(ctx *glib.CallbackContext) {
 	fmt.Printf("File Menu Disable\n")
 }
 
-func (mw *ManageWindow) OnRuleMenuAdd(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnRuleMenuAdd(ctx *glib.CallbackContext) {
 	fmt.Printf("Rule Menu Add\n")
 }
 
-func (mw *ManageWindow) OnRuleMenuEdit(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnRuleMenuEdit(ctx *glib.CallbackContext) {
 	_, detail := mw.GetRuleDetail()
-	mw.detailWindow.SetValues(*detail)
-	mw.detailWindow.Show()
+	mw.detailDialog.SetValues(*detail)
+	mw.detailDialog.Show()
 }
 
-func (mw *ManageWindow) OnRuleMenuDelete(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnRuleMenuDelete(ctx *glib.CallbackContext) {
 	_, rule := mw.GetRuleDetail()
 	switch rule.RuleType {
 	case ui.RULE_DB:
@@ -81,34 +81,35 @@ func (mw *ManageWindow) OnRuleMenuDelete(ctx glib.CallbackContext) {
 	mw.RestoreRowExpand()
 }
 
-func (mw *ManageWindow) OnHelpMenuGetHelp(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnHelpMenuGetHelp(ctx *glib.CallbackContext) {
 
 }
 
-func (mw *ManageWindow) OnHelpMenuAbout(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnHelpMenuAbout(ctx *glib.CallbackContext) {
 
 }
 
-func (mw *ManageWindow) OnTreeViewRowActivated(ctx glib.CallbackContext) {
-
-}
-
-func (mw *ManageWindow) OnTreeViewCursorChanged(ctx glib.CallbackContext) {
+func (mw *ManageWindow) OnTreeViewCursorChanged(ctx *glib.CallbackContext) {
 	_, detail := mw.GetRuleDetail()
 	if detail != nil {
-		mw.manageMenuEdit.SetSensitive(true)
-		mw.manageMenuDelete.SetSensitive(true)
+		mw.ruleMenuEdit.SetSensitive(true)
+		mw.ruleMenuDelete.SetSensitive(true)
 	} else {
-		mw.manageMenuEdit.SetSensitive(false)
-		mw.manageMenuDelete.SetSensitive(false)
+		mw.ruleMenuEdit.SetSensitive(false)
+		mw.ruleMenuDelete.SetSensitive(false)
 	}
 }
 
-func (mw *ManageWindow) OnTreeViewUnselectAll(ctx glib.CallbackContext) {
-	mw.manageMenuEdit.SetSensitive(false)
-	mw.manageMenuDelete.SetSensitive(false)
-}
-
-func (mw *ManageWindow) OnTreeViewButtonPressEvent(ctx glib.CallbackContext) {
-
+func (mw *ManageWindow) OnTreeViewRowActivated(ctx *glib.CallbackContext) {
+	path, detail := mw.GetRuleDetail()
+	if detail != nil {
+		mw.detailDialog.SetValues(*detail)
+		mw.detailDialog.Show()
+	} else {
+		if mw.ruleTreeview.RowExpanded(path) {
+			mw.ruleTreeview.CollapseRow(path)
+		} else {
+			mw.ruleTreeview.ExpandRow(path, true)
+		}
+	}
 }

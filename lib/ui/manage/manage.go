@@ -2,9 +2,6 @@ package manage
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 	"unsafe"
 
 	"github.com/mattn/go-gtk/gdk"
@@ -12,35 +9,45 @@ import (
 	"github.com/mattn/go-gtk/gtk"
 
 	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/ui/ipc"
+	"github.com/r3boot/go-snitch/lib/ui"
 	"github.com/r3boot/go-snitch/lib/ui/detail"
+	"github.com/r3boot/go-snitch/lib/ui/ipc"
 )
 
-func actionToString(action int) string {
-	switch action {
-	case ACTION_ACCEPT:
-		{
-			return "accept"
-		}
-	case ACTION_DROP:
-		{
-			return "reject"
-		}
-	}
-	return "UNSET"
-}
-
-func NewManageWindow(dbus *ipc.IPCService) *ManageWindow {
+func NewManageWindow(dbus *ipc.IPCService, detailDialog *detail.ManageDetailDialog, cache *rules.SessionCache) *ManageWindow {
 	mw := &ManageWindow{
 		dbus:           dbus,
+		detailDialog:   detailDialog,
+		cache:          cache,
 		treeviewExpand: make(map[string]bool),
 	}
 
 	builder := gtk.NewBuilder()
 	builder.AddFromString(GLADE_DATA)
 
+	mw.window = ui.ObjectToWindow(builder, "ManageWindow")
+
+	mw.ruleTreeview = ui.ObjectToTreeView(builder, "RuleTreeView")
+
+	column := ui.NewTreeViewColumn("Application", COLUMN_COMMAND)
+	column.SetMinWidth(250)
+	mw.ruleTreeview.AppendColumn(column)
+
+	column = ui.NewTreeViewColumn("Destination", COLUMN_DESTINATION)
+	column.SetMinWidth(250)
+	mw.ruleTreeview.AppendColumn(column)
+
+	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Port", COLUMN_PORT))
+	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Proto", COLUMN_PROTO))
+	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("User", COLUMN_USER))
+	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Duration", COLUMN_DURATION))
+	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Action", COLUMN_ACTION))
+
 	mw.ruleStore = gtk.NewTreeStore(glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING)
 	mw.ruleTreeview.SetModel(mw.ruleStore.ToTreeModel())
+
+	mw.ruleMenuEdit = ui.ObjectToMenuItem(builder, "RuleMenuEdit")
+	mw.ruleMenuDelete = ui.ObjectToMenuItem(builder, "RuleMenuDelete")
 
 	mw.contextMenu = gtk.NewMenu()
 
@@ -54,6 +61,8 @@ func NewManageWindow(dbus *ipc.IPCService) *ManageWindow {
 
 	mw.contextMenu.ShowAll()
 
+	mw.initCallbacks(builder)
+
 	return mw
 }
 
@@ -64,35 +73,6 @@ func (mw *ManageWindow) OnTreeViewRowSelect() {
 func (mw *ManageWindow) OnTreeViewRowUnselect() {
 	fmt.Printf("OnTreeViewRowUnselect\n")
 
-}
-
-func (mw *ManageWindow) OnFileMenuEnable() {
-	fmt.Printf("File Menu Enable\n")
-}
-
-func (mw *ManageWindow) OnFileMenuDisable() {
-
-}
-
-func (mw *ManageWindow) OnManageMenuEdit() {
-	_, detail := mw.GetRuleDetail()
-	if detail == nil {
-		return
-	}
-	mw.detailWindow.SetValues(*detail)
-	mw.detailWindow.Show()
-}
-
-func (mw *ManageWindow) OnManageMenuDelete() {
-	mw.DeleteRule()
-}
-
-func (mw *ManageWindow) OnHelpMenuHelp() {
-	fmt.Printf("Help Menu Help\n")
-}
-
-func (mw *ManageWindow) OnHelpMenuAbout() {
-	fmt.Printf("Help Menu About\n")
 }
 
 func (mw *ManageWindow) HandleRowClick(ctx *glib.CallbackContext) {
@@ -159,12 +139,12 @@ func (mw *ManageWindow) TreeViewActivate() {
 		return
 	}
 
-	mw.detailWindow.SetValues(*detail)
-	mw.detailWindow.Show()
+	mw.detailDialog.SetValues(*detail)
+	mw.detailDialog.Show()
 }
 
-func (mw *ManageWindow) SetDetailWindow(window *detail.ManageDetailWindow) {
-	mw.detailWindow = window
+func (mw *ManageWindow) SetDetailWindow(window *detail.ManageDetailDialog) {
+	mw.detailDialog = window
 }
 
 func (mw *ManageWindow) SetSessionCache(cache *rules.SessionCache) {

@@ -1,16 +1,12 @@
 package ipc
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 
 	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/snitch"
 	"github.com/r3boot/go-snitch/lib/ui/dialog"
 )
 
@@ -22,7 +18,7 @@ func NewIPCService(dialog *dialog.DialogWindow, cache *rules.SessionCache) (*IPC
 
 	du := &IPCService{}
 
-	du.conn, err := dbus.SystemBus()
+	du.conn, err = dbus.SystemBus()
 	if err != nil {
 		return nil, fmt.Errorf("NewIPCService failed to connect to system bus: %v", err)
 	}
@@ -55,5 +51,5 @@ func NewIPCService(dialog *dialog.DialogWindow, cache *rules.SessionCache) (*IPC
 	du.conn.Export(introspect.NewIntrospectable(introNode), UI_PATH,
 		"org.freedesktop.DBus.Introspectable")
 
-	return nil
+	return du, nil
 }

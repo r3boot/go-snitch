@@ -5,30 +5,66 @@ import (
 
 	"bufio"
 	"context"
-	"github.com/mattn/go-gtk/gtk"
 	"net"
 	"os"
 	"regexp"
 	"time"
 	"unsafe"
+
+	"github.com/mattn/go-gtk/gtk"
 )
+
+func ObjectToWindow(builder *gtk.Builder, name string) *gtk.Window {
+	return &gtk.Window{
+		Bin: *(*gtk.Bin)(unsafe.Pointer(&builder.GetObject(name).Object)),
+	}
+}
+
+func ObjectToDialog(builder *gtk.Builder, name string) *gtk.Dialog {
+	return &gtk.Dialog{
+		Window: *(*gtk.Window)(unsafe.Pointer(&builder.GetObject(name).Object)),
+	}
+}
 
 func ObjectToLabel(builder *gtk.Builder, name string) *gtk.Label {
 	return &gtk.Label{
-		*(*gtk.Label)(unsafe.Pointer(&builder.GetObject(name).Object)),
+		Misc: *(*gtk.Misc)(unsafe.Pointer(&builder.GetObject(name).Object)),
 	}
 }
 
 func ObjectToComboBoxText(builder *gtk.Builder, name string) *gtk.ComboBoxText {
 	return &gtk.ComboBoxText{
-		*(*gtk.ComboBoxText)(unsafe.Pointer(&builder.GetObject(name).Object)),
+		ComboBox: *(*gtk.ComboBox)(unsafe.Pointer(&builder.GetObject(name).Object)),
 	}
 }
 
 func ObjectToMenuItem(builder *gtk.Builder, name string) *gtk.MenuItem {
 	return &gtk.MenuItem{
-		Item: *(*gtk.MenuItem)(unsafe.Pointer(&builder.GetObject(name).Object)),
+		Item: *(*gtk.Item)(unsafe.Pointer(&builder.GetObject(name).Object)),
 	}
+}
+
+func ObjectToEntry(builder *gtk.Builder, name string) *gtk.Entry {
+	return &gtk.Entry{
+		Widget: *(*gtk.Widget)(unsafe.Pointer(&builder.GetObject(name).Object)),
+	}
+}
+
+func ObjectToRadioButton(builder *gtk.Builder, name string) *gtk.RadioButton {
+	return &gtk.RadioButton{
+		CheckButton: *(*gtk.CheckButton)(unsafe.Pointer(&builder.GetObject(name).Object)),
+	}
+}
+
+func ObjectToTreeView(builder *gtk.Builder, name string) *gtk.TreeView {
+	return &gtk.TreeView{
+		Container: *(*gtk.Container)(unsafe.Pointer(&builder.GetObject(name).Object)),
+	}
+}
+
+func NewTreeViewColumn(name string, id int) *gtk.TreeViewColumn {
+	renderer := gtk.NewCellRendererText()
+	return gtk.NewTreeViewColumnWithAttributes(name, renderer, "text", id)
 }
 
 func GetIANAName(proto int, port string) (string, error) {
@@ -60,14 +96,16 @@ func GetIANAName(proto int, port string) (string, error) {
 
 func GetRDNSEntry(dstip string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	names, err := net.DefaultResolver.LookupAddr(ctx, r.Dstip)
+	names, err := net.DefaultResolver.LookupAddr(ctx, dstip)
 	defer cancel()
 
 	if err == nil && len(names) > 0 {
-		return names[0][:len(names[0])-1]
+		return names[0][:len(names[0])-1], nil
 	} else {
-		return dstip
+		return dstip, nil
 	}
+
+	return dstip, fmt.Errorf("GetRDNSEntry: Function failed")
 }
 
 func GetRuleId(cmd string, rules map[int]*Rule) int {

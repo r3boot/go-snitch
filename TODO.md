@@ -22,5 +22,5 @@
 - Move various windows to separate subdirs of lib/ui
 - Delete connrules for db/session when selecting permanent rule
 - Add inbound firewalling
-- Fix (go-snitch-ui:16244): Gtk-CRITICAL **: IA__gtk_tree_path_to_string: assertion 'path != NULL' failed**
 - Convert interface to glade
+- Port application to Qt (https://github.com/therecipe/qt)

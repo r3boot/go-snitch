@@ -1,46 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.0 -->
 <interface>
-  <requires lib="gtk+" version="3.20"/>
+  <requires lib="gtk+" version="2.24"/>
+  <!-- interface-naming-policy project-wide -->
   <object class="GtkStatusIcon" id="StatusIcon">
     <property name="icon_name">security-high</property>
-    <property name="visible">False</property>
-    <signal name="popup-menu" handler="OnPopupMenu" swapped="no"/>
   </object>
-  <object class="GtkMenu">
+  <object class="GtkImage" id="image1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-apply</property>
+  </object>
+  <object class="GtkImage" id="image2">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-stop</property>
+  </object>
+  <object class="GtkImage" id="image3">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-edit</property>
+  </object>
+  <object class="GtkMenu" id="menu2">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <child>
-      <object class="GtkMenuItem">
+      <object class="GtkImageMenuItem" id="StatusMenuEnable">
+        <property name="label" translatable="yes">_Enable</property>
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="label" translatable="yes">MenuEnable</property>
-        <property name="use_underline">True</property>
-        <signal name="activate" handler="OnMenuEnable" swapped="no"/>
+        <property name="image">image1</property>
+        <property name="use_stock">False</property>
       </object>
     </child>
     <child>
-      <object class="GtkMenuItem">
+      <object class="GtkImageMenuItem" id="StatusMenuDisable">
+        <property name="label" translatable="yes">_Disable</property>
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="label" translatable="yes">MenuDisable</property>
-        <property name="use_underline">True</property>
-        <signal name="activate" handler="OnMenuDisable" swapped="no"/>
+        <property name="image">image2</property>
+        <property name="use_stock">False</property>
       </object>
     </child>
     <child>
-      <object class="GtkSeparatorMenuItem">
+      <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
       </object>
     </child>
     <child>
-      <object class="GtkMenuItem">
+      <object class="GtkImageMenuItem" id="StatusMenuManage">
+        <property name="label" translatable="yes">_Manage</property>
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="label" translatable="yes">MenuManage</property>
-        <property name="use_underline">True</property>
-        <signal name="activate" handler="OnMenuManage" swapped="no"/>
+        <property name="image">image3</property>
+        <property name="use_stock">False</property>
       </object>
     </child>
   </object>

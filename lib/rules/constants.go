@@ -10,6 +10,7 @@ import (
 	"github.com/mattn/go-gtk/gtk"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
+	"github.com/r3boot/go-snitch/lib/ui"
 )
 
 const RULESET_TABLE_SQL string = `CREATE TABLE IF NOT EXISTS ruleset (
@@ -93,7 +94,7 @@ type RuleDetail struct {
 	Proto     int
 	User      string
 	Action    string
-	RuleType  int
+	RuleType  ui.RuleType
 	Verdict   int
 	RowPath   *gtk.TreePath
 	Timestamp time.Time

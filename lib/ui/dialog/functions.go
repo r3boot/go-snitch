@@ -2,26 +2,28 @@ package dialog
 
 import (
 	"fmt"
-	"github.com/mattn/go-gtk/gdk"
-	"github.com/r3boot/go-snitch/lib/snitch"
-	"github.com/r3boot/go-snitch/lib/ui"
-	"os"
 	"path"
 	"strings"
-	"time"
+
+	"github.com/mattn/go-gtk/gdk"
+
+	"os"
+
+	"github.com/r3boot/go-snitch/lib/snitch"
+	"github.com/r3boot/go-snitch/lib/ui"
 )
 
-func (dw *DialogWindow) getAction() string {
-	return dw.comboAction.GetActiveText()
+func (dw *DialogWindow) getAction() ui.Action {
+	return ui.IntToActionMap[dw.comboAction.GetActive()]
 }
 
-func (dw *DialogWindow) getScope() string {
-	return dw.comboScope.GetActiveText()
+func (dw *DialogWindow) getScope() ui.Scope {
+	return ui.IntToScopeMap[dw.comboScope.GetActive()]
 }
 
 func (dw *DialogWindow) Show() {
 	gdk.ThreadsEnter()
-	dw.window.ShowAll()
+	dw.window.Show()
 	gdk.ThreadsLeave()
 }
 
@@ -43,7 +45,10 @@ func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
 		port = fmt.Sprintf("%s/%s", protoName, r.Port)
 	}
 
-	destip := ui.GetRDNSEntry(r.Dstip)
+	destip, err := ui.GetRDNSEntry(r.Dstip)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "GetRDNSEntry failed: %v\n", err)
+	}
 
 	cmdline := r.Cmdline
 	if len(cmdline) > 44 {
@@ -52,12 +57,12 @@ func (dw *DialogWindow) SetValues(r snitch.ConnRequest) {
 
 	dw.labelHeader.SetText(appname)
 	dw.labelCmdline.SetText(cmdline)
-	dw.labelIp.SetText(destip)
+	dw.labelDestination.SetText(destip)
 	dw.labelPort.SetText(port)
 	dw.labelPid.SetText(r.Pid)
 	dw.labelUser.SetText(r.User)
 
-	dw.comboAction.SetActive(ACTION_SESSION)
-	dw.comboScope.SetActive(SCOPE_USER)
-	dw.comboDuration.SetActive(DURATION_FOREVER)
+	dw.comboAction.SetActive(ui.ActionToIntMap[ui.ACTION_SESSION])
+	dw.comboScope.SetActive(ui.ScopeToIntMap[ui.SCOPE_USER])
+	dw.comboDuration.SetActive(ui.DurationToIntMap[ui.DURATION_24H])
 }
