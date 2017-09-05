@@ -22,5 +22,4 @@
 - Move various windows to separate subdirs of lib/ui
 - Delete connrules for db/session when selecting permanent rule
 - Add inbound firewalling
-- Convert interface to glade
-- Port application to Qt (https://github.com/therecipe/qt)
+- Port application to Qt (https://github.com/therecipe/qt) [wip]

@@ -2,9 +2,11 @@ package ipc
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/godbus/dbus"
 	"github.com/r3boot/go-snitch/lib/snitch"
-	"os"
+	"github.com/r3boot/test/lib/ui"
 )
 
 func (bus UiBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
@@ -20,45 +22,113 @@ func (bus UiBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
 		return int(sessionVerdict), nil
 	}
 
-	dw.SetValues(r)
-	dw.Show()
+	response := rw.HandleRequest(r)
 
-	response := <-dw.Verdict
-
-	switch response {
-	case snitch.DROP_CONN_SESSION_USER:
+	result := snitch.DROP_CONN_ONCE_USER
+	switch response.Scope {
+	case ui.SCOPE_ONCE:
 		{
-			sessionCache.AddRule(r, snitch.DROP_CONN_ONCE_USER)
+			if response.User == ui.USER_SYSTEM {
+				switch response.Action {
+				case ui.ACTION_WHITELIST:
+					result = snitch.ACCEPT_APP_ONCE_SYSTEM
+				case ui.ACTION_BLOCK:
+					result = snitch.DROP_APP_ONCE_SYSTEM
+				case ui.ACTION_ALLOW:
+					result = snitch.ACCEPT_CONN_ONCE_SYSTEM
+				case ui.ACTION_DENY:
+					result = snitch.DROP_CONN_ONCE_SYSTEM
+				}
+			} else {
+				switch response.Action {
+				case ui.ACTION_WHITELIST:
+					result = snitch.ACCEPT_APP_ONCE_USER
+				case ui.ACTION_BLOCK:
+					result = snitch.DROP_APP_ONCE_USER
+				case ui.ACTION_ALLOW:
+					result = snitch.ACCEPT_CONN_ONCE_SYSTEM
+				case ui.ACTION_DENY:
+					result = snitch.DROP_CONN_ONCE_SYSTEM
+				}
+			}
 		}
-	case snitch.DROP_CONN_SESSION_SYSTEM:
+	case ui.SCOPE_SESSION:
 		{
-			sessionCache.AddRule(r, snitch.DROP_CONN_ONCE_SYSTEM)
+			if response.User == ui.USER_SYSTEM {
+				switch response.Action {
+				case ui.ACTION_WHITELIST:
+					{
+						result = snitch.ACCEPT_APP_ONCE_SYSTEM
+						sessionCache.AddRule(r, snitch.ACCEPT_APP_ONCE_SYSTEM)
+					}
+				case ui.ACTION_BLOCK:
+					{
+						result = snitch.DROP_APP_ONCE_SYSTEM
+						sessionCache.AddRule(r, snitch.DROP_APP_ONCE_SYSTEM)
+					}
+				case ui.ACTION_ALLOW:
+					{
+						result = snitch.ACCEPT_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(r, snitch.ACCEPT_CONN_ONCE_SYSTEM)
+					}
+				case ui.ACTION_DENY:
+					{
+						result = snitch.DROP_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(r, snitch.DROP_CONN_ONCE_SYSTEM)
+					}
+				}
+			} else {
+				switch response.Action {
+				case ui.ACTION_WHITELIST:
+					{
+						result = snitch.ACCEPT_APP_ONCE_USER
+						sessionCache.AddRule(r, snitch.ACCEPT_APP_ONCE_USER)
+					}
+				case ui.ACTION_BLOCK:
+					{
+						result = snitch.DROP_APP_ONCE_SYSTEM
+						sessionCache.AddRule(r, snitch.DROP_APP_ONCE_USER)
+					}
+				case ui.ACTION_ALLOW:
+					{
+						result = snitch.ACCEPT_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(r, snitch.ACCEPT_CONN_ONCE_USER)
+					}
+				case ui.ACTION_DENY:
+					{
+						result = snitch.DROP_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(r, snitch.DROP_CONN_ONCE_USER)
+					}
+				}
+			}
 		}
-	case snitch.ACCEPT_CONN_SESSION_USER:
+	case ui.SCOPE_FOREVER:
 		{
-			sessionCache.AddRule(r, snitch.ACCEPT_CONN_ONCE_USER)
-		}
-	case snitch.ACCEPT_CONN_SESSION_SYSTEM:
-		{
-			sessionCache.AddRule(r, snitch.ACCEPT_CONN_ONCE_SYSTEM)
-		}
-	case snitch.DROP_APP_SESSION_USER:
-		{
-			sessionCache.AddRule(r, snitch.DROP_APP_ONCE_USER)
-		}
-	case snitch.DROP_APP_SESSION_SYSTEM:
-		{
-			sessionCache.AddRule(r, snitch.DROP_APP_ONCE_SYSTEM)
-		}
-	case snitch.ACCEPT_APP_SESSION_USER:
-		{
-			sessionCache.AddRule(r, snitch.ACCEPT_APP_ONCE_USER)
-		}
-	case snitch.ACCEPT_APP_SESSION_SYSTEM:
-		{
-			sessionCache.AddRule(r, snitch.ACCEPT_APP_ONCE_SYSTEM)
+			if response.User == ui.USER_SYSTEM {
+				switch response.Action {
+				case ui.ACTION_WHITELIST:
+					result = snitch.ACCEPT_APP_ALWAYS_SYSTEM
+				case ui.ACTION_BLOCK:
+					result = snitch.DROP_APP_ALWAYS_SYSTEM
+				case ui.ACTION_ALLOW:
+					result = snitch.ACCEPT_CONN_ALWAYS_SYSTEM
+				case ui.ACTION_DENY:
+					result = snitch.DROP_CONN_ALWAYS_SYSTEM
+				}
+			} else {
+				switch response.Action {
+				case ui.ACTION_WHITELIST:
+					result = snitch.ACCEPT_APP_ALWAYS_USER
+				case ui.ACTION_BLOCK:
+					result = snitch.DROP_APP_ALWAYS_USER
+				case ui.ACTION_ALLOW:
+					result = snitch.ACCEPT_CONN_ALWAYS_USER
+				case ui.ACTION_DENY:
+					result = snitch.DROP_CONN_ALWAYS_USER
+				}
+			}
 		}
 	}
 
-	return response, nil
+	return result, nil
 }

@@ -3,7 +3,7 @@ package ipc
 import (
 	"github.com/godbus/dbus"
 	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/ui/dialog"
+	"github.com/r3boot/go-snitch/lib/ui/request"
 )
 
 const (
@@ -23,5 +23,5 @@ type IPCService struct {
 
 type UiBus int
 
-var dw *dialog.DialogWindow
+var rw *request.RequestWindow
 var sessionCache *rules.SessionCache

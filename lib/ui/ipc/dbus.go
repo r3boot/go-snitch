@@ -7,13 +7,13 @@ import (
 	"github.com/godbus/dbus/introspect"
 
 	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/ui/dialog"
+	"github.com/r3boot/go-snitch/lib/ui/request"
 )
 
-func NewIPCService(dialog *dialog.DialogWindow, cache *rules.SessionCache) (*IPCService, error) {
+func NewIPCService(requestWindow *request.RequestWindow, cache *rules.SessionCache) (*IPCService, error) {
 	var err error
 
-	dw = dialog
+	rw = requestWindow
 	sessionCache = cache
 
 	du := &IPCService{}

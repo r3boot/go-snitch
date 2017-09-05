@@ -22,7 +22,7 @@ func (md *ManageDetailDialog) UpdateRule() {
 
 	md.rule.Dstip = md.destinationEntry.GetText()
 	md.rule.Port = md.portEntry.GetText()
-	md.rule.Action = md.actionCombo.GetActiveText()
+	md.rule.Action = string(ui.IntToActionMap[md.actionCombo.GetActive()])
 	if md.systemRadio.GetActive() {
 		md.rule.User = rules.USER_ANY
 	} else {

@@ -17,7 +17,7 @@ ${DAEMON}:
 
 ${UI}:
 	[ -d "${BUILD_DIR}" ] || mkdir -p "${BUILD_DIR}"
-	go build -v -o "${BUILD_DIR}/${UI}" "${COMMANDS_DIR}/${UI}/main.go"
+	cd ${COMMANDS_DIR}/${UI} ; qtdeploy build desktop
 
 install:
 	strip ${BUILD_DIR}/go-snitch
