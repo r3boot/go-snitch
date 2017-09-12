@@ -4,4 +4,6 @@ rules.db
 glade.go
 *.glade~
 .idea
-commands/*/deploy
+cmd/go-snitch-applet/deploy
+cmd/go-snitch-manage/deploy
+cmd/go-snitch-applet/rcc*

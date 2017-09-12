@@ -1,15 +1,56 @@
-package ipc
+package handleripc
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/godbus/dbus"
+
+	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/snitch"
-	"github.com/r3boot/test/lib/ui"
+	"github.com/r3boot/go-snitch/lib/ui"
 )
 
-func (bus UiBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
+func (bus HandlerBus) GetRules() (string, *dbus.Error) {
+	ruleset, err := sessionCache.GetAllRules()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "hipc.GetRules: failed to fetch session rules: %v", err)
+		return "", nil
+	}
+
+	data, err := json.Marshal(ruleset)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "hipc.GetRules: failed to encode json: %v\n", err)
+		return "", nil
+	}
+
+	fmt.Printf("ruleset: %v\n", ruleset)
+
+	return string(data), nil
+}
+
+func (bus HandlerBus) UpdateRule(data string) (string, *dbus.Error) {
+	newRule := rules.RuleDetail{}
+
+	if err := json.Unmarshal([]byte(data), &newRule); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to unmarshal json: %v", err)
+		return err.Error(), nil
+	}
+
+	sessionCache.UpdateRule(newRule)
+
+	return "ok", nil
+}
+
+func (bus HandlerBus) DeleteRule(id int) (string, *dbus.Error) {
+
+	sessionCache.DeleteRule(id)
+
+	return "ok", nil
+}
+
+func (bus HandlerBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
 	// Check if we have a session rule
 	sessionVerdict, err := sessionCache.GetVerdict(r)
 	if err != nil {

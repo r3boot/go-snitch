@@ -1,4 +1,4 @@
-package dbus
+package ipc
 
 import (
 	"github.com/godbus/dbus"

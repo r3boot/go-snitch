@@ -1,4 +1,4 @@
-package dbus
+package ipc
 
 import (
 	"encoding/json"
@@ -30,7 +30,7 @@ func (dd *DBusDaemon) Connect(cache *rules.RuleCache) (err error) {
 
 	if reply != dbus.RequestNameReplyPrimaryOwner {
 		dd.conn = nil
-		return fmt.Errorf("dbus: Name already taken")
+		return fmt.Errorf("ipc: Name already taken")
 	}
 
 	ruleset := Base(0)
@@ -50,7 +50,7 @@ func (dd *DBusDaemon) Connect(cache *rules.RuleCache) (err error) {
 	err = dd.conn.Export(introspect.NewIntrospectable(introNode), DAEMON_PATH,
 		"org.freedesktop.DBus.Introspectable")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "dbus: Failed to export introspect: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ipc: Failed to export introspect: %v\n", err)
 		return
 	}
 
@@ -66,6 +66,8 @@ func (b Base) GetRules() (string, *dbus.Error) {
 		fmt.Fprintf(os.Stderr, "Failed to encode json: %v\n", err)
 		return "", nil
 	}
+
+	fmt.Printf("ruleset: %v\n", ruleset)
 
 	return string(data), nil
 }
@@ -101,12 +103,12 @@ func (dd *DBusDaemon) GetVerdict(r snitch.ConnRequest) (verdict int, err error) 
 
 	verdict = snitch.DROP_CONN_ONCE_USER
 	if r.Command == "" {
-		err = fmt.Errorf("dbus.GetVerdict: Got request without command")
+		err = fmt.Errorf("ipc.GetVerdict: Got request without command")
 		return
 	}
 
 	if err = dd.ui.Call(methodName, 0, r).Store(&verdict); err != nil {
-		fmt.Fprintf(os.Stderr, "Error in calling dbus: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error in calling ipc: %v\n", err)
 		return snitch.DROP_CONN_ONCE_USER, err
 	}
 

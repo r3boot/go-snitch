@@ -7,8 +7,7 @@ import (
 	"syscall"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
-
-	"github.com/r3boot/go-snitch/lib/dbus"
+	"github.com/r3boot/go-snitch/lib/ipc"
 	"github.com/r3boot/go-snitch/lib/kernel"
 	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/snitch"
@@ -16,7 +15,7 @@ import (
 
 func main() {
 	var (
-		dbusDaemon *dbus.DBusDaemon
+		dbusDaemon *ipc.DBusDaemon
 		err        error
 	)
 
@@ -36,7 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbusDaemon = &dbus.DBusDaemon{}
+	dbusDaemon = &ipc.DBusDaemon{}
 	if err = dbusDaemon.Connect(rulecache); err != nil {
 		fmt.Fprintf(os.Stderr, "dbusDaemon:", err)
 		os.Exit(1)

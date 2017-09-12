@@ -1,152 +1,78 @@
 package manage
 
 import (
-	"fmt"
-	"unsafe"
+	"github.com/therecipe/qt/core"
+	"github.com/therecipe/qt/gui"
+	"github.com/therecipe/qt/widgets"
 
-	"github.com/mattn/go-gtk/gdk"
-	"github.com/mattn/go-gtk/glib"
-	"github.com/mattn/go-gtk/gtk"
-
-	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/ui"
-	"github.com/r3boot/go-snitch/lib/ui/detail"
-	"github.com/r3boot/go-snitch/lib/ui/ipc"
+	"github.com/r3boot/go-snitch/lib/ipc/manageipc"
 )
 
-func NewManageWindow(dbus *ipc.IPCService, detailDialog *detail.ManageDetailDialog, cache *rules.SessionCache) *ManageWindow {
+func NewManageWindow(ipc *manageipc.ManageIPCService) *ManageWindow {
 	mw := &ManageWindow{
-		dbus:           dbus,
-		detailDialog:   detailDialog,
-		cache:          cache,
-		treeviewExpand: make(map[string]bool),
+		ipc: ipc,
 	}
 
-	builder := gtk.NewBuilder()
-	builder.AddFromString(GLADE_DATA)
+	mw.window = widgets.NewQMainWindow(nil, 0)
+	mw.window.SetWindowTitle("Manage ruleset")
+	mw.window.SetMinimumHeight(600)
+	mw.window.SetMinimumWidth(850)
+	mw.window.SetWindowModality(core.Qt__ApplicationModal)
 
-	mw.window = ui.ObjectToWindow(builder, "ManageWindow")
+	fileMenu := mw.window.MenuBar().AddMenu2("&File")
+	mw.fileMenuEnable = fileMenu.AddAction("&Enable")
+	mw.fileMenuDisable = fileMenu.AddAction("&Disable")
+	fileMenu.AddSeparator()
+	mw.fileMenuClose = fileMenu.AddAction("&Close")
 
-	mw.ruleTreeview = ui.ObjectToTreeView(builder, "RuleTreeView")
+	ruleMenu := mw.window.MenuBar().AddMenu2("&Rule")
+	mw.ruleMenuAdd = ruleMenu.AddAction("&Add")
+	mw.ruleMenuEdit = ruleMenu.AddAction("&Edit")
+	mw.ruleMenuDelete = ruleMenu.AddAction("&Delete")
 
-	column := ui.NewTreeViewColumn("Application", COLUMN_COMMAND)
-	column.SetMinWidth(250)
-	mw.ruleTreeview.AppendColumn(column)
+	helpMenu := mw.window.MenuBar().AddMenu2("&Help")
+	mw.helpMenuHelp = helpMenu.AddAction("&Get help")
+	mw.helpMenuAbout = helpMenu.AddAction("&About")
 
-	column = ui.NewTreeViewColumn("Destination", COLUMN_DESTINATION)
-	column.SetMinWidth(250)
-	mw.ruleTreeview.AppendColumn(column)
+	tabWidget := widgets.NewQTabWidget(nil)
 
-	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Port", COLUMN_PORT))
-	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Proto", COLUMN_PROTO))
-	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("User", COLUMN_USER))
-	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Duration", COLUMN_DURATION))
-	mw.ruleTreeview.AppendColumn(ui.NewTreeViewColumn("Action", COLUMN_ACTION))
+	inboundScrollArea := widgets.NewQScrollArea(nil)
+	inboundScrollArea.SetWidgetResizable(true)
 
-	mw.ruleStore = gtk.NewTreeStore(glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING, glib.G_TYPE_STRING)
-	mw.ruleTreeview.SetModel(mw.ruleStore.ToTreeModel())
+	mw.treeviewRule = widgets.NewQTreeView(nil)
+	mw.treeviewRule.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
+	mw.treeviewRule.SetAlternatingRowColors(true)
+	treeModel := gui.NewQStandardItemModel(nil)
+	mw.treeviewRoot = treeModel.InvisibleRootItem()
 
-	mw.ruleMenuEdit = ui.ObjectToMenuItem(builder, "RuleMenuEdit")
-	mw.ruleMenuDelete = ui.ObjectToMenuItem(builder, "RuleMenuDelete")
+	headerLabels := []string{
+		"Command",
+		"Destination",
+		"Port",
+		"Proto",
+		"User",
+		"Duration",
+		"Verdict",
+	}
 
-	mw.contextMenu = gtk.NewMenu()
+	treeModel.SetHorizontalHeaderLabels(headerLabels)
+	mw.treeviewRule.SetModel(treeModel)
 
-	menuEdit := gtk.NewMenuItemWithLabel("Edit")
-	menuEdit.Connect("activate", mw.EditRule)
-	mw.contextMenu.Add(menuEdit)
+	mw.treeviewRule.SetColumnWidth(COLUMN_COMMAND, 270)
+	mw.treeviewRule.SetColumnWidth(COLUMN_DESTINATION, 280)
+	mw.treeviewRule.SetColumnWidth(COLUMN_PORT, 50)
+	mw.treeviewRule.SetColumnWidth(COLUMN_PROTO, 50)
+	mw.treeviewRule.SetColumnWidth(COLUMN_USER, 70)
+	mw.treeviewRule.SetColumnWidth(COLUMN_DURATION, 70)
+	mw.treeviewRule.SetColumnWidth(COLUMN_ACTION, 50)
 
-	menuDelete := gtk.NewMenuItemWithLabel("Delete")
-	menuDelete.Connect("activate", mw.DeleteRule)
-	mw.contextMenu.Add(menuDelete)
+	inboundScrollArea.SetWidget(mw.treeviewRule)
 
-	mw.contextMenu.ShowAll()
+	tabWidget.AddTab(inboundScrollArea, "Outbound")
 
-	mw.initCallbacks(builder)
+	mw.window.SetCentralWidget(tabWidget)
+
+	mw.initCallbacks()
 
 	return mw
-}
-
-func (mw *ManageWindow) OnTreeViewRowSelect() {
-
-}
-
-func (mw *ManageWindow) OnTreeViewRowUnselect() {
-	fmt.Printf("OnTreeViewRowUnselect\n")
-
-}
-
-func (mw *ManageWindow) HandleRowClick(ctx *glib.CallbackContext) {
-	arg := ctx.Args(0)
-	event := *(**gdk.EventButton)(unsafe.Pointer(&arg))
-
-	if gdk.EventType(event.Type) == gdk.BUTTON_PRESS && event.Button == 3 {
-
-		path, detail := mw.GetRuleDetail()
-		if detail == nil {
-			return
-		}
-
-		selection := mw.ruleTreeview.GetSelection()
-		selection.UnselectAll()
-		selection.SelectPath(path)
-
-		mw.contextMenu.Popup(nil, nil, nil, mw.ruleTreeview, uint(0), uint32(0))
-	}
-}
-
-func (mw *ManageWindow) EditRule() {
-
-}
-
-func (mw *ManageWindow) DeleteRule() {
-
-}
-
-func (mw *ManageWindow) ClearTreeStore() {
-	mw.ruleStore.Clear()
-}
-
-func (mw *ManageWindow) RestoreRowExpand() {
-	fmt.Printf("mw.treeviewExpand: %v\n", mw.treeviewExpand)
-	for path_s, expanded := range mw.treeviewExpand {
-		if !expanded {
-			continue
-		}
-		path := gtk.NewTreePathFromString(path_s)
-		mw.ruleTreeview.ExpandRow(path, true)
-	}
-}
-
-func (mw *ManageWindow) DeleteRowExpand(path string) {
-	delete(mw.treeviewExpand, path)
-}
-
-func (mw *ManageWindow) ToggleRowExpand(path *gtk.TreePath) {
-	if mw.ruleTreeview.RowExpanded(path) {
-		mw.ruleTreeview.CollapseRow(path)
-		mw.treeviewExpand[path.String()] = false
-	} else {
-		mw.ruleTreeview.ExpandRow(path, true)
-		mw.treeviewExpand[path.String()] = true
-	}
-}
-
-func (mw *ManageWindow) TreeViewActivate() {
-	path, detail := mw.GetRuleDetail()
-
-	if detail == nil {
-		mw.ToggleRowExpand(path)
-		return
-	}
-
-	mw.detailDialog.SetValues(*detail)
-	mw.detailDialog.Show()
-}
-
-func (mw *ManageWindow) SetDetailWindow(window *detail.ManageDetailDialog) {
-	mw.detailDialog = window
-}
-
-func (mw *ManageWindow) SetSessionCache(cache *rules.SessionCache) {
-	mw.cache = cache
 }

@@ -1,22 +1,22 @@
 package detail
 
 import (
-	"github.com/mattn/go-gtk/gtk"
-	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/ui/ipc"
+	"github.com/therecipe/qt/widgets"
 )
 
-type ManageDetailDialog struct {
-	window           *gtk.Window
+type DetailWindow struct {
 	dbus             *ipc.IPCService
-	cache            *rules.SessionCache
-	rule             rules.RuleDetail
-	commandLabel     *gtk.Label
-	destinationEntry *gtk.Entry
-	portEntry        *gtk.Entry
-	userEntry        *gtk.Entry
-	systemRadio      *gtk.RadioButton
-	userRadio        *gtk.RadioButton
-	actionCombo      *gtk.ComboBoxText
-	durationCombo    *gtk.ComboBoxText
+	window           *widgets.QMainWindow
+	entryDestination *widgets.QLineEdit
+	entryPort        *widgets.QLineEdit
+	comboProto       *widgets.QComboBox
+	buttonSave       *widgets.QPushButton
+	buttonDelete     *widgets.QPushButton
+	radioSystem      *widgets.QRadioButton
+	labelSystem      *widgets.QLabel
+	radioUser        *widgets.QRadioButton
+	entryUser        *widgets.QLineEdit
+	comboDuration    *widgets.QComboBox
+	comboAction      *widgets.QComboBox
 }

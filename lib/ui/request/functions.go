@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/r3boot/go-snitch/lib/snitch"
-	"github.com/r3boot/test/lib/ui"
+	"github.com/r3boot/go-snitch/lib/ui"
 )
 
 func (rw *RequestWindow) getScope() ui.Scope {
@@ -60,7 +60,7 @@ func (rw *RequestWindow) setValues(r snitch.ConnRequest) {
 	rw.labelPid.SetText(r.Pid)
 	rw.labelUser.SetText(r.User)
 
-	rw.comboScope.SetCurrentIndex(int(ui.SCOPE_SESSION))
+	rw.comboScope.SetCurrentIndex(ui.ScopeToIntMap[ui.SCOPE_SESSION])
 	rw.comboUser.SetCurrentIndex(0)
 	rw.comboDuration.SetCurrentIndex(ui.DurationToIntMap[ui.DURATION_1D])
 }

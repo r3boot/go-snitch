@@ -1,4 +1,3 @@
-- Fix Dropping, unexpectedly due to no recv, idx=2548154674
 - Make sure daemon works w/o the dialog connected to dbus
 - Fix Failed to get packet details: readlink /proc/-/exe: no such file or directory
 - Fix ipv6 (Failed to get packet details: readlink /proc//exe: no such file or directory, no pid found??)
@@ -12,14 +11,11 @@
 - Add possibility to time-limit connections
 - Simplify rule database
 - Add time-based rules
-- Convert RuleDetail.Action to int
 - Make naming of widgets more consistent
 - Make base types of dbus servers logical
 - Add authentication mechanism for dbus calls
-- Cleanup fetchRules()
 - Save RDNS on new rule
-- Fix row expand on rule delete in manage ui
-- Move various windows to separate subdirs of lib/ui
 - Delete connrules for db/session when selecting permanent rule
 - Add inbound firewalling
-- Port application to Qt (https://github.com/therecipe/qt) [wip]
+- Move network lookups to netlink calls
+- Move pid lookups to ftrace

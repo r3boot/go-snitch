@@ -3,7 +3,7 @@ package request
 import (
 	"fmt"
 
-	"github.com/r3boot/test/lib/ui"
+	"github.com/r3boot/go-snitch/lib/ui"
 )
 
 func (rw *RequestWindow) initCallbacks() {

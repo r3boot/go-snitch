@@ -1,4 +1,4 @@
-package ipc
+package handleripc
 
 import (
 	"fmt"
@@ -6,26 +6,27 @@ import (
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 
+	"github.com/r3boot/go-snitch/lib/ipc"
 	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/ui/request"
 )
 
-func NewIPCService(requestWindow *request.RequestWindow, cache *rules.SessionCache) (*IPCService, error) {
+func NewHandlerIPCService(requestWindow *request.RequestWindow, cache *rules.SessionCache) (*HandlerIPCService, error) {
 	var err error
 
 	rw = requestWindow
 	sessionCache = cache
 
-	du := &IPCService{}
+	handleripc := &HandlerIPCService{}
 
-	du.conn, err = dbus.SystemBus()
+	handleripc.conn, err = dbus.SystemBus()
 	if err != nil {
 		return nil, fmt.Errorf("NewIPCService failed to connect to system bus: %v", err)
 	}
 
-	du.daemon = du.conn.Object(DAEMON_NAME, DAEMON_PATH)
+	handleripc.daemon = handleripc.conn.Object(ipc.DAEMON_NAME, ipc.DAEMON_PATH)
 
-	reply, err := du.conn.RequestName(UI_NAME, dbus.NameFlagDoNotQueue)
+	reply, err := handleripc.conn.RequestName(ipc.UI_NAME, dbus.NameFlagDoNotQueue)
 	if err != nil {
 		return nil, fmt.Errorf("NewIPCService failed to request name: %v", err)
 	}
@@ -34,22 +35,22 @@ func NewIPCService(requestWindow *request.RequestWindow, cache *rules.SessionCac
 		return nil, fmt.Errorf("NewIPCService name already taken")
 	}
 
-	bus := UiBus(0)
-	du.conn.Export(bus, UI_PATH, UI_NAME)
+	bus := HandlerBus(0)
+	handleripc.conn.Export(bus, ipc.UI_PATH, ipc.UI_NAME)
 
 	introNode := &introspect.Node{
-		Name: UI_PATH_S,
+		Name: ipc.UI_PATH_S,
 		Interfaces: []introspect.Interface{
 			introspect.IntrospectData,
 			{
-				Name:    UI_NAME,
+				Name:    ipc.UI_NAME,
 				Methods: introspect.Methods(bus),
 			},
 		},
 	}
 
-	du.conn.Export(introspect.NewIntrospectable(introNode), UI_PATH,
+	handleripc.conn.Export(introspect.NewIntrospectable(introNode), ipc.UI_PATH,
 		"org.freedesktop.DBus.Introspectable")
 
-	return du, nil
+	return handleripc, nil
 }
