@@ -19,7 +19,7 @@ func (rw *RequestWindow) getUser() ui.User {
 }
 
 func (rw *RequestWindow) getDuration() ui.Duration {
-	return ui.IntToDurationMap[rw.comboDuration.CurrentIndex()]
+	return ui.Duration(rw.comboDuration.CurrentIndex())
 }
 
 func (rw *RequestWindow) Show() {
@@ -78,4 +78,11 @@ func (rw *RequestWindow) HandleRequest(r snitch.ConnRequest) Response {
 	rw.setValues(r)
 	rw.Show()
 	return <-rw.responseChan
+}
+
+func (r Response) Dump() {
+	fmt.Printf("Scope: %s\n", r.Scope.String())
+	fmt.Printf("User: %s\n", r.User.String())
+	fmt.Printf("Duration: %s\n", r.Duration.String())
+	fmt.Printf("Action: %s\n", r.Action.String())
 }

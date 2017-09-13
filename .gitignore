@@ -7,3 +7,5 @@ glade.go
 cmd/go-snitch-applet/deploy
 cmd/go-snitch-manage/deploy
 cmd/go-snitch-applet/rcc*
+cmd/go-snitch-applet/linux/
+cmd/go-snitch-manage/linux/

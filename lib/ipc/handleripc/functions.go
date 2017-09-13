@@ -65,6 +65,8 @@ func (bus HandlerBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
 
 	response := rw.HandleRequest(r)
 
+	response.Dump()
+
 	result := snitch.DROP_CONN_ONCE_USER
 	switch response.Scope {
 	case ui.SCOPE_ONCE:

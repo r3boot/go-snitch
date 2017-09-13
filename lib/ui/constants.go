@@ -6,26 +6,26 @@ import (
 )
 
 type Proto int
-type Scope string
-type User string
+type Scope int
+type User int
 type Action int
-type Duration string
+type Duration int
 type RuleType int
 type Verdict int
 
 const (
-	USER_NAME   User = "for this user"
-	USER_SYSTEM User = "system wide"
+	USER_NAME   User = 0
+	USER_SYSTEM User = 1
 
-	SCOPE_ONCE    Scope = "only once"
-	SCOPE_SESSION Scope = "for this session"
-	SCOPE_FOREVER Scope = "forever"
+	SCOPE_ONCE    Scope = 0
+	SCOPE_SESSION Scope = 1
+	SCOPE_FOREVER Scope = 2
 
-	DURATION_5M      Duration = "5m"
-	DURATION_1H      Duration = "1h"
-	DURATION_8H      Duration = "8h"
-	DURATION_1D      Duration = "24h"
-	DURATION_FOREVER Duration = "forever"
+	DURATION_5M      Duration = 0
+	DURATION_1H      Duration = 1
+	DURATION_8H      Duration = 2
+	DURATION_1D      Duration = 3
+	DURATION_FOREVER Duration = 4
 
 	TYPE_DB      RuleType = 0
 	TYPE_SESSION RuleType = 1
