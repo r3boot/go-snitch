@@ -112,7 +112,7 @@ func (db *RuleDB) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
 
 	// Check if the rule matches the requested user
 	if matchingRule.User == USER_ANY || matchingRule.User == r.User {
-		return matchingRule.Verdict, nil
+		return netfilter.Verdict(matchingRule.Verdict), nil
 	}
 
 	return netfilter.NF_UNDEF, nil

@@ -1,11 +1,13 @@
 package manage
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/therecipe/qt/gui"
 
-	"fmt"
+	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/ui"
-	"os"
 )
 
 func (mw *ManageWindow) Show() {
@@ -25,52 +27,72 @@ func (mw *ManageWindow) GetRuleMeta(cmd string) RuleMeta {
 	return meta
 }
 
-func (mw *ManageWindow) fetchRules() {
-	ruleset, err := mw.ipc.GetDBRules()
+func (mw *ManageWindow) fetchRules(ruleType ui.RuleType) {
+	var ruleset []rules.RuleItem
+	var err error
+
+	switch ruleType {
+	case ui.TYPE_DB:
+		ruleset, err = mw.ipc.GetDBRules()
+	case ui.TYPE_SESSION:
+		ruleset, err = mw.ipc.GetClientRules()
+	default:
+		fmt.Fprintf(os.Stderr, "mw.fetchRules: no such ruletype: %d", ruleType)
+		return
+	}
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "mw.fetchRules: failed to retrieve rules: %v", err)
 		return
 	}
 
-	fmt.Printf("ruleset: %v", ruleset)
-
-	mw.ruleset = make(map[string]RuleMeta)
-
-	for _, dbrule := range ruleset {
-		meta := mw.GetRuleMeta(dbrule.Cmd)
-
-		if dbrule.Dstip == "" {
+	for _, rule := range ruleset {
+		meta := mw.GetRuleMeta(rule.Cmd)
+		verdict := ui.VERDICT_REJECT
+		switch ruleType {
+		case ui.TYPE_DB:
+			verdict = ui.NFVerdictToVerdict(rule.Verdict)
+		case ui.TYPE_SESSION:
+			verdict = ui.SnitchVerdictToVerdict(rule.Verdict)
+		}
+		if rule.Dstip == "" {
 			meta.IsAppRule = true
 			rule := RuleItem{
-				Id:        dbrule.Id,
-				Scope:     ui.Scope(dbrule.User),
-				Duration:  dbrule.Duration,
-				Verdict:   ui.NFVerdictToVerdict(dbrule.Verdict),
-				Timestamp: dbrule.Timestamp,
-				RuleType:  ui.TYPE_DB,
+				Id:        rule.Id,
+				User:      rule.User,
+				Duration:  rule.Duration,
+				Verdict:   verdict,
+				Timestamp: rule.Timestamp,
+				RuleType:  ruleType,
 			}
 			meta.Rules = append(meta.Rules, rule)
 		} else {
 			rule := RuleItem{
-				Id:          dbrule.Id,
-				Destination: dbrule.Dstip,
-				Port:        dbrule.Port,
-				Proto:       ui.Proto(dbrule.Proto),
-				Scope:       ui.Scope(dbrule.User),
-				Duration:    dbrule.Duration,
-				Verdict:     ui.NFVerdictToVerdict(dbrule.Verdict),
-				Timestamp:   dbrule.Timestamp,
-				RuleType:    ui.TYPE_DB,
+				Id:          rule.Id,
+				Destination: rule.Dstip,
+				Port:        rule.Port,
+				Proto:       ui.ProtoIntMap[rule.Proto],
+				User:        rule.User,
+				Duration:    rule.Duration,
+				Verdict:     verdict,
+				Timestamp:   rule.Timestamp,
+				RuleType:    ruleType,
 			}
 			meta.Rules = append(meta.Rules, rule)
 		}
-		mw.ruleset[dbrule.Cmd] = meta
+		mw.ruleset[rule.Cmd] = meta
 	}
 
 }
 
+func (mw *ManageWindow) fetchAllRules() {
+	mw.ruleset = make(map[string]RuleMeta)
+	mw.fetchRules(ui.TYPE_DB)
+	mw.fetchRules(ui.TYPE_SESSION)
+}
+
 func (mw *ManageWindow) LoadRules() {
-	mw.fetchRules()
+	mw.fetchAllRules()
 
 	for cmd, meta := range mw.ruleset {
 		if meta.IsAppRule {
@@ -79,7 +101,7 @@ func (mw *ManageWindow) LoadRules() {
 				gui.NewQStandardItem(),
 				gui.NewQStandardItem(),
 				gui.NewQStandardItem(),
-				gui.NewQStandardItem2(meta.Rules[0].Scope.String()),
+				gui.NewQStandardItem2(meta.Rules[0].User),
 				gui.NewQStandardItem2(meta.Rules[0].Duration.String()),
 				gui.NewQStandardItem2(meta.Rules[0].Verdict.String()),
 			}
@@ -96,7 +118,7 @@ func (mw *ManageWindow) LoadRules() {
 					gui.NewQStandardItem2(rule.Destination),
 					gui.NewQStandardItem2(rule.Port),
 					gui.NewQStandardItem2(rule.Proto.String()),
-					gui.NewQStandardItem2(rule.Scope.String()),
+					gui.NewQStandardItem2(rule.User),
 					gui.NewQStandardItem2(rule.Duration.String()),
 					gui.NewQStandardItem2(rule.Verdict.String()),
 				}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/mattn/go-gtk/gtk"
 
-	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 	"github.com/r3boot/go-snitch/lib/ui"
 )
 
@@ -65,18 +64,6 @@ const (
 type RuleItem struct {
 	Id        int
 	Cmd       string
-	Verdict   netfilter.Verdict
-	Dstip     string
-	Port      string
-	Proto     int
-	User      string
-	Timestamp time.Time
-	Duration  time.Duration
-}
-
-type SessionRuleItem struct {
-	Id        int
-	Cmd       string
 	Verdict   int
 	Dstip     string
 	Port      string
@@ -114,6 +101,6 @@ type RuleCache struct {
 }
 
 type SessionCache struct {
-	ruleset []SessionRuleItem
+	ruleset []RuleItem
 	mutex   sync.RWMutex
 }

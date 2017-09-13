@@ -10,7 +10,7 @@ import (
 func NewSessionCache() *SessionCache {
 
 	cache := &SessionCache{
-		ruleset: []SessionRuleItem{},
+		ruleset: []RuleItem{},
 	}
 
 	return cache
@@ -21,8 +21,8 @@ func (cache *SessionCache) GetVerdict(r snitch.ConnRequest) (int, error) {
 	defer cache.mutex.RUnlock()
 
 	isAppRule := true
-	foundRules := []SessionRuleItem{}
-	matchingRule := SessionRuleItem{}
+	foundRules := []RuleItem{}
+	matchingRule := RuleItem{}
 
 	// Get all rules matching command
 	for _, rule := range cache.ruleset {
@@ -73,7 +73,7 @@ func (cache *SessionCache) GetVerdict(r snitch.ConnRequest) (int, error) {
 }
 
 func (cache *SessionCache) DeleteConnRulesFor(cmd string) {
-	ruleset := []SessionRuleItem{}
+	ruleset := []RuleItem{}
 
 	for _, rule := range cache.ruleset {
 		if rule.Cmd != cmd {
@@ -89,11 +89,11 @@ func (cache *SessionCache) DeleteConnRulesFor(cmd string) {
 	cache.ruleset = ruleset
 }
 
-func (cache *SessionCache) DeleteRuleByRule(delRule SessionRuleItem) {
+func (cache *SessionCache) DeleteRuleByRule(delRule RuleItem) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	ruleset := []SessionRuleItem{}
+	ruleset := []RuleItem{}
 
 	for _, rule := range cache.ruleset {
 		if rule == delRule {
@@ -109,7 +109,7 @@ func (cache *SessionCache) DeleteRule(id int) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	ruleset := []SessionRuleItem{}
+	ruleset := []RuleItem{}
 
 	for _, rule := range cache.ruleset {
 		if rule.Id == id {
@@ -125,7 +125,7 @@ func (cache *SessionCache) DeleteAppUserRules(r snitch.ConnRequest) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	ruleset := []SessionRuleItem{}
+	ruleset := []RuleItem{}
 
 	for _, rule := range cache.ruleset {
 		if rule.Cmd != r.Command {
@@ -146,7 +146,7 @@ func (cache *SessionCache) DeleteConnUserRules(r snitch.ConnRequest) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	ruleset := []SessionRuleItem{}
+	ruleset := []RuleItem{}
 
 	for _, rule := range cache.ruleset {
 		if rule.Cmd == r.Command && rule.Dstip == r.Dstip && rule.Port == r.Port && rule.Proto == r.Proto {
@@ -201,7 +201,7 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 		snitch.DROP_APP_ONCE_USER:
 		{
 			cache.DeleteConnRulesFor(r.Command)
-			cache.ruleset = append(cache.ruleset, SessionRuleItem{
+			cache.ruleset = append(cache.ruleset, RuleItem{
 				Id:        cache.NextFreeId(),
 				Cmd:       r.Command,
 				Verdict:   verdict,
@@ -215,7 +215,7 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 		snitch.DROP_CONN_ONCE_SYSTEM,
 		snitch.DROP_CONN_ONCE_USER:
 		{
-			cache.ruleset = append(cache.ruleset, SessionRuleItem{
+			cache.ruleset = append(cache.ruleset, RuleItem{
 				Id:        cache.NextFreeId(),
 				Cmd:       r.Command,
 				Verdict:   verdict,
@@ -234,7 +234,7 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 	return nil
 }
 
-func (cache *SessionCache) GetAllRules() ([]SessionRuleItem, error) {
+func (cache *SessionCache) GetAllRules() ([]RuleItem, error) {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 
@@ -247,13 +247,13 @@ func (cache *SessionCache) UpdateRule(newRule RuleDetail) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	newRuleset := []SessionRuleItem{}
+	newRuleset := []RuleItem{}
 
 	fmt.Printf("newRule: %v\n", newRule)
 
 	for _, rule := range cache.ruleset {
 		if rule.Id == newRule.Id {
-			newRuleset = append(newRuleset, SessionRuleItem{
+			newRuleset = append(newRuleset, RuleItem{
 				Id:       newRule.Id,
 				Cmd:      newRule.Command,
 				Dstip:    newRule.Dstip,

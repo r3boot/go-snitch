@@ -25,7 +25,7 @@ func (bus HandlerBus) GetRules() (string, *dbus.Error) {
 		return "", nil
 	}
 
-	fmt.Printf("ruleset: %v\n", ruleset)
+	fmt.Printf("session ruleset: %v\n", ruleset)
 
 	return string(data), nil
 }

@@ -25,7 +25,7 @@ type RuleItem struct {
 	Destination string
 	Port        string
 	Proto       ui.Proto
-	Scope       ui.Scope
+	User        string
 	Timestamp   time.Time
 	Duration    time.Duration
 	Verdict     ui.Verdict

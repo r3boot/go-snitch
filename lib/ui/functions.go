@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
+	"github.com/r3boot/go-snitch/lib/snitch"
 )
 
 func (s Scope) String() string {
@@ -66,24 +67,54 @@ func (p Proto) String() string {
 	return "UNKNOWN"
 }
 
-func NFVerdictToVerdict(v netfilter.Verdict) Verdict {
-	switch v {
-	case netfilter.NF_ACCEPT:
-		return VERDICT_ACCEPT
-	case netfilter.NF_DROP:
-		return VERDICT_REJECT
-	default:
-		return VERDICT_REJECT
-	}
-}
-
 func (v Verdict) String() string {
 	switch v {
 	case VERDICT_ACCEPT:
 		return "accept"
 	case VERDICT_REJECT:
 		return "reject"
-	default:
-		return "UNKNOWN"
 	}
+	return "UNKNOWN"
+}
+
+func NFVerdictToVerdict(v int) Verdict {
+	switch v {
+	case int(netfilter.NF_ACCEPT):
+		return VERDICT_ACCEPT
+	case int(netfilter.NF_DROP):
+		return VERDICT_REJECT
+	}
+	return VERDICT_REJECT
+}
+
+func SnitchVerdictToVerdict(v int) Verdict {
+	switch v {
+	case snitch.DROP_CONN_ONCE_USER,
+		snitch.DROP_CONN_SESSION_USER,
+		snitch.DROP_CONN_ALWAYS_USER,
+		snitch.DROP_APP_ONCE_USER,
+		snitch.DROP_APP_SESSION_USER,
+		snitch.DROP_APP_ALWAYS_USER,
+		snitch.DROP_CONN_ONCE_SYSTEM,
+		snitch.DROP_CONN_SESSION_SYSTEM,
+		snitch.DROP_CONN_ALWAYS_SYSTEM,
+		snitch.DROP_APP_ONCE_SYSTEM,
+		snitch.DROP_APP_SESSION_SYSTEM,
+		snitch.DROP_APP_ALWAYS_SYSTEM:
+		return VERDICT_REJECT
+	case snitch.ACCEPT_CONN_ONCE_USER,
+		snitch.ACCEPT_CONN_SESSION_USER,
+		snitch.ACCEPT_CONN_ALWAYS_USER,
+		snitch.ACCEPT_APP_ONCE_USER,
+		snitch.ACCEPT_APP_SESSION_USER,
+		snitch.ACCEPT_APP_ALWAYS_USER,
+		snitch.ACCEPT_CONN_ONCE_SYSTEM,
+		snitch.ACCEPT_CONN_SESSION_SYSTEM,
+		snitch.ACCEPT_CONN_ALWAYS_SYSTEM,
+		snitch.ACCEPT_APP_ONCE_SYSTEM,
+		snitch.ACCEPT_APP_SESSION_SYSTEM,
+		snitch.ACCEPT_APP_ALWAYS_SYSTEM:
+		return VERDICT_ACCEPT
+	}
+	return VERDICT_REJECT
 }

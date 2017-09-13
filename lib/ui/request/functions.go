@@ -60,9 +60,9 @@ func (rw *RequestWindow) setValues(r snitch.ConnRequest) {
 	rw.labelPid.SetText(r.Pid)
 	rw.labelUser.SetText(r.User)
 
-	rw.comboScope.SetCurrentIndex(ui.ScopeToIntMap[ui.SCOPE_SESSION])
+	rw.comboScope.SetCurrentIndex(int(ui.SCOPE_SESSION))
 	rw.comboUser.SetCurrentIndex(0)
-	rw.comboDuration.SetCurrentIndex(ui.DurationToIntMap[ui.DURATION_1D])
+	rw.comboDuration.SetCurrentIndex(int(ui.DURATION_1D))
 }
 
 func (rw *RequestWindow) getValues() Response {
