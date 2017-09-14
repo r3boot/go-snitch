@@ -19,3 +19,5 @@
 - Add inbound firewalling
 - Move network lookups to netlink calls
 - Move pid lookups to ftrace
+- Make sure that a long command doesnt ruin the request dialog
+- Add translations

@@ -5,10 +5,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"regexp"
-	"strconv"
 )
 
 type Proc struct {
@@ -17,7 +17,20 @@ type Proc struct {
 }
 
 type ProcMon struct {
-	Procs map[int]*Proc
+	Procs map[string]*Proc
+}
+
+func NewProcMon() *ProcMon {
+	return &ProcMon{}
+}
+
+func (pm *ProcMon) GetCmdline(pid string) (string, string) {
+	fmt.Printf("pm.Procs[pid]: %v\n", pm.Procs[pid])
+	entry, ok := pm.Procs[pid]
+	if !ok {
+		return "UNKNOWN", "UNKNOWN"
+	}
+	return entry.Filename, entry.Args
 }
 
 func writeFile(path string, value []byte) error {
@@ -116,7 +129,7 @@ func disableProbe() error {
 	return nil
 }
 
-func (pm ProcMon) HasFtrace() bool {
+func HasFtrace() bool {
 	var (
 		data []byte
 	)
@@ -130,7 +143,7 @@ func (pm ProcMon) HasFtrace() bool {
 	return false
 }
 
-func (pm ProcMon) Enable() error {
+func (pm *ProcMon) Enable() error {
 	var (
 		i            int
 		fs           os.FileInfo
@@ -186,7 +199,7 @@ func (pm ProcMon) Enable() error {
 	return nil
 }
 
-func (pm ProcMon) Disable() error {
+func (pm *ProcMon) Disable() error {
 	var (
 		fs  os.FileInfo
 		fd  *os.File
@@ -203,7 +216,7 @@ func (pm ProcMon) Disable() error {
 		return err
 	}
 
-	// echo 1 > /sys/kernel/debug/tracing/events/sched/sched_process_quit/enable
+	// echo 0 > /sys/kernel/debug/tracing/events/sched/sched_process_quit/enable
 	if err = disableTrace(TRACE_EXIT); err != nil {
 		return err
 	}
@@ -253,7 +266,7 @@ func (pm ProcMon) Disable() error {
 	return nil
 }
 
-func (pm ProcMon) Slurp() error {
+func (pm *ProcMon) Slurp() error {
 	var (
 		fs             os.FileInfo
 		fd             *os.File
@@ -273,7 +286,7 @@ func (pm ProcMon) Slurp() error {
 		allExitMatches [][]string
 		event          string
 		filename       string
-		pid            int
+		pid            string
 	)
 
 	if fs, err = os.Stat(TRACE_PIPE); err != nil {
@@ -295,28 +308,34 @@ func (pm ProcMon) Slurp() error {
 	reEventExec = regexp.MustCompile(RE_EVENT_EXEC)
 	reEventExit = regexp.MustCompile(RE_EVENT_EXIT)
 
-	pm.Procs = make(map[int]*Proc, MAX_PROCS)
+	pm.Procs = make(map[string]*Proc, MAX_PROCS)
 
 	buf = bufio.NewReader(fd)
-	line, slurpErr = buf.ReadBytes('\n')
 
-	for slurpErr == nil {
+	for {
+		line, slurpErr = buf.ReadBytes('\n')
+		if slurpErr != nil && slurpErr != io.EOF {
+			break
+		}
+
 		line = bytes.TrimRight(line, "\n")
+
 		if bytes.Contains(line, probeName_b) { // New process
 			allMatches = reProbePID.FindAllSubmatch(line, 1)
 			if allMatches == nil {
 				continue
 			}
 
-			if pid, err = strconv.Atoi(string(allMatches[0][1])); err != nil {
-				return err
-			}
+			pid = string(allMatches[0][1])
 
 			if bytes.Contains(line, []byte("(fault)")) {
 				line = line[:bytes.Index(line, []byte("(fault)"))]
 			}
 
 			allArgs = reArgs.FindAllStringSubmatch(string(line), -1)
+			if allArgs == nil {
+				continue
+			}
 
 			args := allArgs[0][1]
 			for i := 1; i < len(allArgs); i++ {
@@ -326,9 +345,6 @@ func (pm ProcMon) Slurp() error {
 			pm.Procs[pid] = &Proc{
 				Args: args,
 			}
-
-			fmt.Println("Found new process")
-
 		} else {
 			allMatches = reSched.FindAllSubmatch(line, 1)
 			if allMatches == nil {
@@ -343,39 +359,30 @@ func (pm ProcMon) Slurp() error {
 					allExecMatches = reEventExec.FindAllStringSubmatch(string(line), -1)
 
 					filename = allExecMatches[0][1]
-
-					if pid, err = strconv.Atoi(allExecMatches[0][2]); err != nil {
-						return err
-					}
+					pid = allExecMatches[0][2]
 
 					if _, ok := pm.Procs[pid]; !ok {
+						fmt.Printf("UpdateProc: no such pid: %d\n", pid)
 						continue
 					}
 
 					pm.Procs[pid].Filename = filename
-
-					fmt.Println(pm.Procs[pid])
 
 				}
 			case EV_EXIT:
 				{
 					allExitMatches = reEventExit.FindAllStringSubmatch(string(line), -1)
 
-					if pid, err = strconv.Atoi(allExitMatches[0][1]); err != nil {
-						return err
-					}
+					pid = allExitMatches[0][1]
 
 					if _, ok := pm.Procs[pid]; ok {
 						delete(pm.Procs, pid)
-						fmt.Println("Removed entry from map")
 						continue
 					}
 				}
 			}
 
 		}
-
-		line, slurpErr = buf.ReadBytes('\n')
 	}
 
 	return nil

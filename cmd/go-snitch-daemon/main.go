@@ -44,6 +44,8 @@ func main() {
 	filter := kernel.NewNetfilter("/usr/bin/iptables", "/usr/bin/ip6tables")
 	filter.SetupRules()
 
+	parser := snitch.NewSnitch()
+
 	exitSignal := make(chan os.Signal, 1)
 	hupSignal := make(chan os.Signal, 1)
 	stopHupHandler := make(chan bool, 1)
@@ -53,6 +55,7 @@ func main() {
 	go func() {
 		<-exitSignal
 		fmt.Printf("Received signal, exiting...\n")
+		parser.Disable()
 		filter.CleanupRules()
 		signalsCompleted <- true
 	}()
@@ -83,12 +86,14 @@ func main() {
 				os.Exit(0)
 			}
 		case p := <-packets:
-			request, err := snitch.GetConnRequest(p.Packet)
+			request, err := parser.ProcessPacket(p.Packet)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to get packet details: %v\n", err)
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}
+
+			fmt.Printf("Request: %v\n", request)
 
 			verdict, err := rulecache.GetVerdict(request)
 			if err != nil {

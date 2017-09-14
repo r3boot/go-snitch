@@ -15,17 +15,16 @@ import (
 )
 
 const (
+	PROTO_TCP  int = 6 // TODO: redundant with snitch.PROTO_*
+	PROTO_UDP  int = 17
+	PROTO_IPV4 int = 4
+	PROTO_IPV6 int = 41
+
 	PROC_TCP  = "/proc/net/tcp"
 	PROC_UDP  = "/proc/net/udp"
 	PROC_TCP6 = "/proc/net/tcp6"
 	PROC_UDP6 = "/proc/net/udp6"
 )
-
-type Process struct {
-	User    string
-	Pid     string
-	Cmdline string
-}
 
 func getData(t string) []string {
 	// Get data from tcp or udp file.
@@ -92,7 +91,7 @@ func findPid(inode string) string {
 	// Loop through all fd dirs of process on /proc to compare the inode and
 	// get the pid.
 
-	pid := "-"
+	pid := "0"
 
 	d, err := filepath.Glob("/proc/[0-9]*/fd/[0-9]*")
 	if err != nil {
@@ -111,11 +110,17 @@ func findPid(inode string) string {
 	return pid
 }
 
-func getCmdline(pid string) string {
+func GetCmdLineViaProc(pid string) (string, string) {
+	exeFile := fmt.Sprintf("/proc/%s/exe", pid)
+	cmd, err := os.Readlink(exeFile)
+	if err != nil {
+		return "UNKNOWN", "UNKNOWN"
+	}
+
 	exe := fmt.Sprintf("/proc/%s/cmdline", pid)
 	data, _ := ioutil.ReadFile(exe)
-	command := bytes.Join(bytes.Split(data, []byte("\x00")), []byte(" "))
-	return string(command)
+	cmdline := bytes.Join(bytes.Split(data, []byte("\x00")), []byte(" "))
+	return cmd, string(cmdline)
 }
 
 func getUser(uid string) string {
@@ -138,11 +143,37 @@ func removeEmpty(array []string) []string {
 	return new_array
 }
 
-func netstat(t string, srcip string, dstip string, srcport string, dstport string) Process {
-	// Return a array of Process with Name, Ip, Port, State .. etc
-	// Require Root acess to get information about some processes.
+func GetPIDAndUser(ipver, proto int, srcip, dstip net.IP, srcport, dstport uint16) (string, string) {
+	protoName := ""
+	switch ipver {
+	case PROTO_IPV4:
+		switch proto {
+		case PROTO_TCP:
+			protoName = "tcp"
+		case PROTO_UDP:
+			protoName = "udp"
+		}
+	case PROTO_IPV6:
+		switch proto {
+		case PROTO_TCP:
+			protoName = "tcp6"
+		case PROTO_UDP:
+			protoName = "udp6"
+		}
+	}
 
-	data := getData(t)
+	if len(protoName) == 0 {
+		fmt.Fprintf(os.Stderr, "netstat.GetProcessInfo: unknown protocol\n")
+		return "0", ""
+	}
+
+	sip := ConvertIP(srcip)
+	dip := ConvertIP(dstip)
+
+	sport := fmt.Sprintf("%d", srcport)
+	dport := fmt.Sprintf("%d", dstport)
+
+	data := getData(protoName)
 
 	for _, line := range data {
 		if len(line) == 0 {
@@ -161,43 +192,14 @@ func netstat(t string, srcip string, dstip string, srcport string, dstport strin
 		fip := fip_port[0]
 		fport := hexToDec(fip_port[1])
 
-		if ip == srcip && fip == dstip && port == srcport && fport == dstport {
+		if ip == sip && fip == dip && port == sport && fport == dport {
 			user := getUser(line_array[7])
 			pid := findPid(line_array[9])
-			return Process{
-				User:    user,
-				Pid:     pid,
-				Cmdline: getCmdline(pid),
-			}
+			return pid, user
 		} else {
 			continue
 		}
 	}
 
-	return Process{}
-
-}
-
-func Tcp(srcip string, dstip string, srcport string, dstport string) Process {
-	// Get a slice of Process type with TCP data
-	data := netstat("tcp", srcip, dstip, srcport, dstport)
-	return data
-}
-
-func Udp(srcip string, dstip string, srcport string, dstport string) Process {
-	// Get a slice of Process type with UDP data
-	data := netstat("udp", srcip, dstip, srcport, dstport)
-	return data
-}
-
-func Tcp6(srcip string, dstip string, srcport string, dstport string) Process {
-	// Get a slice of Process type with TCP6 data
-	data := netstat("tcp6", srcip, dstip, srcport, dstport)
-	return data
-}
-
-func Udp6(srcip string, dstip string, srcport string, dstport string) Process {
-	// Get a slice of Process type with UDP6 data
-	data := netstat("udp6", srcip, dstip, srcport, dstport)
-	return data
+	return "0", ""
 }

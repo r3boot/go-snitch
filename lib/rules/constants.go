@@ -7,8 +7,6 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/mattn/go-gtk/gtk"
-
 	"github.com/r3boot/go-snitch/lib/ui"
 )
 
@@ -83,7 +81,6 @@ type RuleDetail struct {
 	Action    string
 	RuleType  ui.RuleType
 	Verdict   int
-	RowPath   *gtk.TreePath
 	Timestamp time.Time
 	Duration  time.Duration
 }

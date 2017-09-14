@@ -107,7 +107,13 @@ func (dd *DBusDaemon) GetVerdict(r snitch.ConnRequest) (verdict int, err error) 
 		return
 	}
 
-	if err = dd.ui.Call(methodName, 0, r).Store(&verdict); err != nil {
+	data, err := json.Marshal(r)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to encode json: %v\n", err)
+		return verdict, nil
+	}
+
+	if err = dd.ui.Call(methodName, 0, string(data)).Store(&verdict); err != nil {
 		fmt.Fprintf(os.Stderr, "Error in calling ipc: %v\n", err)
 		return snitch.DROP_CONN_ONCE_USER, err
 	}

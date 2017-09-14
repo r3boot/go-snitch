@@ -50,9 +50,18 @@ func (bus HandlerBus) DeleteRule(id int) (string, *dbus.Error) {
 	return "ok", nil
 }
 
-func (bus HandlerBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
+func (bus HandlerBus) GetVerdict(data string) (int, *dbus.Error) {
+	newRequest := snitch.ConnRequest{}
+
+	if err := json.Unmarshal([]byte(data), &newRequest); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to unmarshal json: %v", err)
+		return snitch.DROP_CONN_ONCE_USER, nil
+	}
+
+	fmt.Printf("Got verdict request: %v\n", newRequest)
+
 	// Check if we have a session rule
-	sessionVerdict, err := sessionCache.GetVerdict(r)
+	sessionVerdict, err := sessionCache.GetVerdict(newRequest)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sessionCache: Failed to get verdict: %v\n", err)
 		os.Exit(1)
@@ -63,7 +72,7 @@ func (bus HandlerBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
 		return int(sessionVerdict), nil
 	}
 
-	response := rw.HandleRequest(r)
+	response := rw.HandleRequest(newRequest)
 
 	response.Dump()
 
@@ -102,22 +111,22 @@ func (bus HandlerBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
 				case ui.ACTION_WHITELIST:
 					{
 						result = snitch.ACCEPT_APP_ONCE_SYSTEM
-						sessionCache.AddRule(r, snitch.ACCEPT_APP_ONCE_SYSTEM)
+						sessionCache.AddRule(newRequest, snitch.ACCEPT_APP_ONCE_SYSTEM)
 					}
 				case ui.ACTION_BLOCK:
 					{
 						result = snitch.DROP_APP_ONCE_SYSTEM
-						sessionCache.AddRule(r, snitch.DROP_APP_ONCE_SYSTEM)
+						sessionCache.AddRule(newRequest, snitch.DROP_APP_ONCE_SYSTEM)
 					}
 				case ui.ACTION_ALLOW:
 					{
 						result = snitch.ACCEPT_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(r, snitch.ACCEPT_CONN_ONCE_SYSTEM)
+						sessionCache.AddRule(newRequest, snitch.ACCEPT_CONN_ONCE_SYSTEM)
 					}
 				case ui.ACTION_DENY:
 					{
 						result = snitch.DROP_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(r, snitch.DROP_CONN_ONCE_SYSTEM)
+						sessionCache.AddRule(newRequest, snitch.DROP_CONN_ONCE_SYSTEM)
 					}
 				}
 			} else {
@@ -125,22 +134,22 @@ func (bus HandlerBus) GetVerdict(r snitch.ConnRequest) (int, *dbus.Error) {
 				case ui.ACTION_WHITELIST:
 					{
 						result = snitch.ACCEPT_APP_ONCE_USER
-						sessionCache.AddRule(r, snitch.ACCEPT_APP_ONCE_USER)
+						sessionCache.AddRule(newRequest, snitch.ACCEPT_APP_ONCE_USER)
 					}
 				case ui.ACTION_BLOCK:
 					{
 						result = snitch.DROP_APP_ONCE_SYSTEM
-						sessionCache.AddRule(r, snitch.DROP_APP_ONCE_USER)
+						sessionCache.AddRule(newRequest, snitch.DROP_APP_ONCE_USER)
 					}
 				case ui.ACTION_ALLOW:
 					{
 						result = snitch.ACCEPT_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(r, snitch.ACCEPT_CONN_ONCE_USER)
+						sessionCache.AddRule(newRequest, snitch.ACCEPT_CONN_ONCE_USER)
 					}
 				case ui.ACTION_DENY:
 					{
 						result = snitch.DROP_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(r, snitch.DROP_CONN_ONCE_USER)
+						sessionCache.AddRule(newRequest, snitch.DROP_CONN_ONCE_USER)
 					}
 				}
 			}

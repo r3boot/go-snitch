@@ -2,6 +2,8 @@ package snitch
 
 import (
 	"time"
+
+	"github.com/r3boot/go-snitch/lib/kernel"
 )
 
 const (
@@ -34,19 +36,29 @@ const (
 	UNKNOWN int = 99
 
 	PROTO_UNKNOWN int = 255
-	PROTO_TCP     int = 6
-	PROTO_UDP     int = 17
-	PROTO_IPV4    int = 4
-	PROTO_IPV6    int = 41
+
+	PROTO_ICMP  int = 1
+	PROTO_TCP   int = 6
+	PROTO_UDP   int = 17
+	PROTO_ICMP6 int = 58
+
+	PROTO_IPV4 int = 4
+	PROTO_IPV6 int = 41
 )
 
+type Snitch struct {
+	useFtrace bool
+	procMon   *kernel.ProcMon
+}
+
 type ConnRequest struct {
-	Dstip    string
-	Port     string
-	Proto    int
-	Pid      string
-	Command  string
-	Cmdline  string
-	User     string
-	Duration time.Duration
+	Dstip     string
+	Port      string
+	Proto     int
+	Pid       string
+	Command   string
+	Cmdline   string
+	User      string
+	Timestamp time.Time
+	Duration  time.Duration
 }

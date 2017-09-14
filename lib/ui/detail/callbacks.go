@@ -4,20 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mattn/go-gtk/glib"
-	"github.com/mattn/go-gtk/gtk"
-
 	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/snitch"
 	"github.com/r3boot/go-snitch/lib/ui"
 )
 
 func (dw *DetailWindow) initCallbacks() {
-        dw.buttonSave.ConnectClicked(dw.OnButtonSaveClicked)
-        dw.buttonDelete.ConnectClicked(dw.OnButtonDeleteClicked)
-        dw.labelSystem.ConnectMousePressEvent(dw.OnLabelSystemFocusInEvent)
-        dw.radioUser.ConnectClicked(dw.OnRadioUserClicked)
-        dw.entryUser.ConnectMousePressEvent(dw.OnEntryUserMousePressEvent)
+	dw.buttonSave.ConnectClicked(dw.OnButtonSaveClicked)
+	dw.buttonDelete.ConnectClicked(dw.OnButtonDeleteClicked)
+	dw.labelSystem.ConnectMousePressEvent(dw.OnLabelSystemFocusInEvent)
+	dw.radioUser.ConnectClicked(dw.OnRadioUserClicked)
+	dw.entryUser.ConnectMousePressEvent(dw.OnEntryUserMousePressEvent)
 }
 
 func (dd *ManageDetailDialog) OnClose() bool {
