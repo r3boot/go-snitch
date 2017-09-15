@@ -12,7 +12,6 @@
 - Simplify rule database
 - Add time-based rules
 - Make naming of widgets more consistent
-- Make base types of dbus servers logical
 - Add authentication mechanism for dbus calls
 - Save RDNS on new rule
 - Delete connrules for db/session when selecting permanent rule
@@ -20,3 +19,5 @@
 - Move network lookups to netlink calls
 - Make sure that a long command doesnt ruin the request dialog
 - Add translations
+- Fix ntp request handling
+- Add global enable/disable possibility

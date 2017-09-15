@@ -3,9 +3,14 @@ package systray
 import (
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/widgets"
+
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
-func NewSystray() *Systray {
+func NewSystray(l *logger.Logger) *Systray {
+
+	log = l
+
 	st := &Systray{}
 
 	widget := widgets.NewQWidget(nil, 0)

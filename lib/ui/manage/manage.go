@@ -6,9 +6,12 @@ import (
 	"github.com/therecipe/qt/widgets"
 
 	"github.com/r3boot/go-snitch/lib/ipc/manageipc"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
-func NewManageWindow(ipc *manageipc.ManageIPCService) *ManageWindow {
+func NewManageWindow(l *logger.Logger, ipc *manageipc.ManageIPCService) *ManageWindow {
+	log = l
+
 	mw := &ManageWindow{
 		ipc: ipc,
 	}

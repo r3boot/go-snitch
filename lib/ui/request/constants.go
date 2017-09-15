@@ -1,8 +1,10 @@
 package request
 
 import (
-	"github.com/r3boot/go-snitch/lib/ui"
 	"github.com/therecipe/qt/widgets"
+
+	"github.com/r3boot/go-snitch/lib/datastructures"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
 type RequestWindow struct {
@@ -20,12 +22,10 @@ type RequestWindow struct {
 	buttonBlock      *widgets.QPushButton
 	buttonAllow      *widgets.QPushButton
 	buttonDeny       *widgets.QPushButton
-	responseChan     chan Response
+	responseChan     chan datastructures.Response
 }
 
-type Response struct {
-	Scope    ui.Scope
-	User     ui.User
-	Duration ui.Duration
-	Action   ui.Action
-}
+
+var (
+	log *logger.Logger
+)

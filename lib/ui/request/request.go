@@ -3,11 +3,16 @@ package request
 import (
 	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/widgets"
+
+	"github.com/r3boot/go-snitch/lib/datastructures"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
-func NewRequestWindow() *RequestWindow {
+func NewRequestWindow(l *logger.Logger) *RequestWindow {
+	log = l
+
 	rw := &RequestWindow{
-		responseChan: make(chan Response),
+		responseChan: make(chan datastructures.Response),
 	}
 
 	rw.window = widgets.NewQMainWindow(nil, 0)

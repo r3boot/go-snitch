@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 )
 
 func Which(binary string) (string, error) {
@@ -57,7 +57,7 @@ func WriteToFile(path string, value []byte) error {
 	return nil
 }
 
-func GetIANAName(proto int, port string) (string, error) {
+func GetIANAName(proto datastructures.Proto, port string) (string, error) {
 	result := ""
 
 	fd, err := os.Open("/etc/services")
@@ -66,7 +66,7 @@ func GetIANAName(proto int, port string) (string, error) {
 	}
 	defer fd.Close()
 
-	protoName, ok := common.ProtoToStringMap[proto]
+	protoName, ok := datastructures.ProtoToStringMap[proto]
 	if !ok {
 		return result, fmt.Errorf("GetIANAName ProtoNameMap lookup failed")
 	}

@@ -7,13 +7,15 @@ import (
 	"github.com/godbus/dbus/introspect"
 
 	"github.com/r3boot/go-snitch/lib/ipc"
+	"github.com/r3boot/go-snitch/lib/logger"
 	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/ui/request"
 )
 
-func NewHandlerIPCService(requestWindow *request.RequestWindow, cache *rules.SessionCache) (*HandlerIPCService, error) {
+func NewHandlerIPCService(l *logger.Logger, requestWindow *request.RequestWindow, cache *rules.SessionCache) (*HandlerIPCService, error) {
 	var err error
 
+	log = l
 	rw = requestWindow
 	sessionCache = cache
 

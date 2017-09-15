@@ -6,8 +6,9 @@ import (
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/widgets"
 
+	"github.com/r3boot/go-snitch/lib/datastructures"
 	"github.com/r3boot/go-snitch/lib/ipc/manageipc"
-	"github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
 const (
@@ -24,12 +25,12 @@ type RuleItem struct {
 	Id          int
 	Destination string
 	Port        string
-	Proto       ui.Proto
+	Proto       datastructures.Proto
 	User        string
 	Timestamp   time.Time
 	Duration    time.Duration
-	Verdict     ui.Verdict
-	RuleType    ui.RuleType
+	Verdict     datastructures.Verdict
+	RuleType    datastructures.RuleType
 }
 
 type RuleMeta struct {
@@ -54,3 +55,7 @@ type ManageWindow struct {
 	treeviewRule    *widgets.QTreeView
 	treeviewRoot    *gui.QStandardItem
 }
+
+var (
+	log *logger.Logger
+)

@@ -26,13 +26,12 @@ func HasFtrace() bool {
 	return false
 }
 
-func (pm *Ftrace) GetCmdline(pid string) (string, string) {
+func (pm *Ftrace) GetCmdline(pid string) (string, string, error) {
 	entry, ok := pm.procmap[pid]
 	if !ok {
-		log.Warningf("Ftrace.GetCmdline: PID %d not found in procmap", pid)
-		return "UNKNOWN", "UNKNOWN"
+		return "", "", fmt.Errorf("Ftrace.GetCmdline: PID %s not found in procmap", pid)
 	}
-	return entry.Filename, entry.Args
+	return entry.Filename, entry.Args, nil
 }
 
 func (pm *Ftrace) enableTrace(ev string) error {

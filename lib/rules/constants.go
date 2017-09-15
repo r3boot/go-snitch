@@ -3,11 +3,10 @@ package rules
 import (
 	"database/sql"
 	"sync"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 	"github.com/r3boot/go-snitch/lib/logger"
 )
 
@@ -52,41 +51,9 @@ const UPDATE_RULE_SQL string = `UPDATE ruleset SET
 const GET_ALL_RULES_SQL string = `SELECT * FROM ruleset`
 
 const (
-	DB_PATH        string = "/var/lib/go-snitch.db"
 	MAX_CACHE_SIZE int    = 16384
 	USER_ANY       string = "*"
-	UNKNOWN_ID     int    = -1
-	FILTER_USER    int    = 0
-	FILTER_SYSTEM  int    = 1
 )
-
-type RuleItem struct {
-	Id        int
-	Cmd       string
-	Verdict   int
-	Dstip     string
-	Port      string
-	Proto     int
-	User      string
-	Timestamp time.Time
-	Duration  time.Duration
-}
-
-type RuleDetail struct {
-	Id        int
-	Command   string
-	Dstip     string
-	Port      string
-	Proto     int
-	User      string
-	Action    string
-	RuleType  common.RuleType
-	Verdict   int
-	Timestamp time.Time
-	Duration  time.Duration
-}
-
-type Ruleset []RuleItem
 
 type RuleDB struct {
 	conn  *sql.DB
@@ -96,12 +63,12 @@ type RuleDB struct {
 
 type RuleCache struct {
 	backend *RuleDB
-	ruleset Ruleset
+	ruleset datastructures.Ruleset
 	mutex   sync.RWMutex
 }
 
 type SessionCache struct {
-	ruleset Ruleset
+	ruleset datastructures.Ruleset
 	mutex   sync.RWMutex
 }
 

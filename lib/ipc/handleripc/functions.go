@@ -7,9 +7,7 @@ import (
 
 	"github.com/godbus/dbus"
 
-	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/snitch"
-	"github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 )
 
 func (bus HandlerBus) GetRules() (string, *dbus.Error) {
@@ -31,7 +29,7 @@ func (bus HandlerBus) GetRules() (string, *dbus.Error) {
 }
 
 func (bus HandlerBus) UpdateRule(data string) (string, *dbus.Error) {
-	newRule := rules.RuleDetail{}
+	newRule := datastructures.RuleDetail{}
 
 	if err := json.Unmarshal([]byte(data), &newRule); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to unmarshal json: %v", err)
@@ -50,12 +48,12 @@ func (bus HandlerBus) DeleteRule(id int) (string, *dbus.Error) {
 	return "ok", nil
 }
 
-func (bus HandlerBus) GetVerdict(data string) (int, *dbus.Error) {
-	newRequest := snitch.ConnRequest{}
+func (bus HandlerBus) GetVerdict(data string) (datastructures.ResponseType, *dbus.Error) {
+	newRequest := datastructures.ConnRequest{}
 
 	if err := json.Unmarshal([]byte(data), &newRequest); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to unmarshal json: %v", err)
-		return snitch.DROP_CONN_ONCE_USER, nil
+		return datastructures.RESPONSE_UNKNOWN, nil
 	}
 
 	fmt.Printf("Got verdict request: %v\n", newRequest)
@@ -63,120 +61,119 @@ func (bus HandlerBus) GetVerdict(data string) (int, *dbus.Error) {
 	// Check if we have a session rule
 	sessionVerdict, err := sessionCache.GetVerdict(newRequest)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "sessionCache: Failed to get verdict: %v\n", err)
-		os.Exit(1)
+		log.Warningf("HandlerBus.GetVerdict: %v", err)
 	}
 
-	if sessionVerdict != snitch.UNKNOWN {
-		fmt.Printf("Verdict by session rule\n")
-		return int(sessionVerdict), nil
+	if sessionVerdict != datastructures.RESPONSE_UNKNOWN {
+		log.Debugf("Verdict by session rule\n")
+		return sessionVerdict, nil
 	}
 
 	response := rw.HandleRequest(newRequest)
 
-	response.Dump()
+	log.Debugf(response.String())
 
-	result := snitch.DROP_CONN_ONCE_USER
+	result := datastructures.DROP_CONN_ONCE_USER
 	switch response.Scope {
-	case ui.SCOPE_ONCE:
+	case datastructures.SCOPE_ONCE:
 		{
-			if response.User == ui.USER_SYSTEM {
+			if response.User == datastructures.USER_SYSTEM {
 				switch response.Action {
-				case ui.ACTION_WHITELIST:
-					result = snitch.ACCEPT_APP_ONCE_SYSTEM
-				case ui.ACTION_BLOCK:
-					result = snitch.DROP_APP_ONCE_SYSTEM
-				case ui.ACTION_ALLOW:
-					result = snitch.ACCEPT_CONN_ONCE_SYSTEM
-				case ui.ACTION_DENY:
-					result = snitch.DROP_CONN_ONCE_SYSTEM
+				case datastructures.ACTION_WHITELIST:
+					result = datastructures.ACCEPT_APP_ONCE_SYSTEM
+				case datastructures.ACTION_BLOCK:
+					result = datastructures.DROP_APP_ONCE_SYSTEM
+				case datastructures.ACTION_ALLOW:
+					result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
+				case datastructures.ACTION_DENY:
+					result = datastructures.DROP_CONN_ONCE_SYSTEM
 				}
 			} else {
 				switch response.Action {
-				case ui.ACTION_WHITELIST:
-					result = snitch.ACCEPT_APP_ONCE_USER
-				case ui.ACTION_BLOCK:
-					result = snitch.DROP_APP_ONCE_USER
-				case ui.ACTION_ALLOW:
-					result = snitch.ACCEPT_CONN_ONCE_SYSTEM
-				case ui.ACTION_DENY:
-					result = snitch.DROP_CONN_ONCE_SYSTEM
+				case datastructures.ACTION_WHITELIST:
+					result = datastructures.ACCEPT_APP_ONCE_USER
+				case datastructures.ACTION_BLOCK:
+					result = datastructures.DROP_APP_ONCE_USER
+				case datastructures.ACTION_ALLOW:
+					result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
+				case datastructures.ACTION_DENY:
+					result = datastructures.DROP_CONN_ONCE_SYSTEM
 				}
 			}
 		}
-	case ui.SCOPE_SESSION:
+	case datastructures.SCOPE_SESSION:
 		{
-			if response.User == ui.USER_SYSTEM {
+			if response.User == datastructures.USER_SYSTEM {
 				switch response.Action {
-				case ui.ACTION_WHITELIST:
+				case datastructures.ACTION_WHITELIST:
 					{
-						result = snitch.ACCEPT_APP_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, snitch.ACCEPT_APP_ONCE_SYSTEM)
+						result = datastructures.ACCEPT_APP_ONCE_SYSTEM
+						sessionCache.AddRule(newRequest, datastructures.ACCEPT_APP_ONCE_SYSTEM)
 					}
-				case ui.ACTION_BLOCK:
+				case datastructures.ACTION_BLOCK:
 					{
-						result = snitch.DROP_APP_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, snitch.DROP_APP_ONCE_SYSTEM)
+						result = datastructures.DROP_APP_ONCE_SYSTEM
+						sessionCache.AddRule(newRequest, datastructures.DROP_APP_ONCE_SYSTEM)
 					}
-				case ui.ACTION_ALLOW:
+				case datastructures.ACTION_ALLOW:
 					{
-						result = snitch.ACCEPT_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, snitch.ACCEPT_CONN_ONCE_SYSTEM)
+						result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(newRequest, datastructures.ACCEPT_CONN_ONCE_SYSTEM)
 					}
-				case ui.ACTION_DENY:
+				case datastructures.ACTION_DENY:
 					{
-						result = snitch.DROP_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, snitch.DROP_CONN_ONCE_SYSTEM)
+						result = datastructures.DROP_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(newRequest, datastructures.DROP_CONN_ONCE_SYSTEM)
 					}
 				}
 			} else {
 				switch response.Action {
-				case ui.ACTION_WHITELIST:
+				case datastructures.ACTION_WHITELIST:
 					{
-						result = snitch.ACCEPT_APP_ONCE_USER
-						sessionCache.AddRule(newRequest, snitch.ACCEPT_APP_ONCE_USER)
+						result = datastructures.ACCEPT_APP_ONCE_USER
+						sessionCache.AddRule(newRequest, datastructures.ACCEPT_APP_ONCE_USER)
 					}
-				case ui.ACTION_BLOCK:
+				case datastructures.ACTION_BLOCK:
 					{
-						result = snitch.DROP_APP_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, snitch.DROP_APP_ONCE_USER)
+						result = datastructures.DROP_APP_ONCE_SYSTEM
+						sessionCache.AddRule(newRequest, datastructures.DROP_APP_ONCE_USER)
 					}
-				case ui.ACTION_ALLOW:
+				case datastructures.ACTION_ALLOW:
 					{
-						result = snitch.ACCEPT_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, snitch.ACCEPT_CONN_ONCE_USER)
+						result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(newRequest, datastructures.ACCEPT_CONN_ONCE_USER)
 					}
-				case ui.ACTION_DENY:
+				case datastructures.ACTION_DENY:
 					{
-						result = snitch.DROP_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, snitch.DROP_CONN_ONCE_USER)
+						result = datastructures.DROP_CONN_ONCE_SYSTEM
+						sessionCache.AddRule(newRequest, datastructures.DROP_CONN_ONCE_USER)
 					}
 				}
 			}
 		}
-	case ui.SCOPE_FOREVER:
+	case datastructures.SCOPE_FOREVER:
 		{
-			if response.User == ui.USER_SYSTEM {
+			if response.User == datastructures.USER_SYSTEM {
 				switch response.Action {
-				case ui.ACTION_WHITELIST:
-					result = snitch.ACCEPT_APP_ALWAYS_SYSTEM
-				case ui.ACTION_BLOCK:
-					result = snitch.DROP_APP_ALWAYS_SYSTEM
-				case ui.ACTION_ALLOW:
-					result = snitch.ACCEPT_CONN_ALWAYS_SYSTEM
-				case ui.ACTION_DENY:
-					result = snitch.DROP_CONN_ALWAYS_SYSTEM
+				case datastructures.ACTION_WHITELIST:
+					result = datastructures.ACCEPT_APP_ALWAYS_SYSTEM
+				case datastructures.ACTION_BLOCK:
+					result = datastructures.DROP_APP_ALWAYS_SYSTEM
+				case datastructures.ACTION_ALLOW:
+					result = datastructures.ACCEPT_CONN_ALWAYS_SYSTEM
+				case datastructures.ACTION_DENY:
+					result = datastructures.DROP_CONN_ALWAYS_SYSTEM
 				}
 			} else {
 				switch response.Action {
-				case ui.ACTION_WHITELIST:
-					result = snitch.ACCEPT_APP_ALWAYS_USER
-				case ui.ACTION_BLOCK:
-					result = snitch.DROP_APP_ALWAYS_USER
-				case ui.ACTION_ALLOW:
-					result = snitch.ACCEPT_CONN_ALWAYS_USER
-				case ui.ACTION_DENY:
-					result = snitch.DROP_CONN_ALWAYS_USER
+				case datastructures.ACTION_WHITELIST:
+					result = datastructures.ACCEPT_APP_ALWAYS_USER
+				case datastructures.ACTION_BLOCK:
+					result = datastructures.DROP_APP_ALWAYS_USER
+				case datastructures.ACTION_ALLOW:
+					result = datastructures.ACCEPT_CONN_ALWAYS_USER
+				case datastructures.ACTION_DENY:
+					result = datastructures.DROP_CONN_ALWAYS_USER
 				}
 			}
 		}

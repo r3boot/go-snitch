@@ -2,24 +2,23 @@ package request
 
 import (
 	"fmt"
-	"os"
 	"path"
 	"strings"
 
-	"github.com/r3boot/go-snitch/lib/snitch"
-	"github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/datastructures"
+	"github.com/r3boot/go-snitch/lib/utils"
 )
 
-func (rw *RequestWindow) getScope() ui.Scope {
-	return ui.Scope(rw.comboScope.CurrentIndex())
+func (rw *RequestWindow) getScope() datastructures.Scope {
+	return datastructures.Scope(rw.comboScope.CurrentIndex())
 }
 
-func (rw *RequestWindow) getUser() ui.User {
-	return ui.User(rw.comboUser.CurrentIndex())
+func (rw *RequestWindow) getUser() datastructures.User {
+	return datastructures.User(rw.comboUser.CurrentIndex())
 }
 
-func (rw *RequestWindow) getDuration() ui.Duration {
-	return ui.Duration(rw.comboDuration.CurrentIndex())
+func (rw *RequestWindow) getDuration() datastructures.Duration {
+	return datastructures.Duration(rw.comboDuration.CurrentIndex())
 }
 
 func (rw *RequestWindow) Show() {
@@ -30,27 +29,27 @@ func (rw *RequestWindow) Hide() {
 	rw.window.Hide()
 }
 
-func (rw *RequestWindow) setValues(r snitch.ConnRequest) {
+func (rw *RequestWindow) setValues(r datastructures.ConnRequest) {
 	header := fmt.Sprintf("<font size='3'><b>%s wants to connect to the network</b></font>",
 		path.Base(strings.Split(r.Command, " ")[0]))
 
-	protoName, ok := ui.ProtoNameMap[r.Proto]
+	protoName, ok := datastructures.ProtoToStringMap[r.Proto]
 	if !ok {
 		protoName = "UNKNOWN"
 	}
 
 	port := "UNKNOWN"
-	portName, err := ui.GetIANAName(r.Proto, r.Port)
+	portName, err := utils.GetIANAName(r.Proto, r.Port)
 	if err == nil {
 		port = fmt.Sprintf("%s/%s (%s)", protoName, r.Port, portName)
 	} else {
 		port = fmt.Sprintf("%s/%s", protoName, r.Port)
 	}
 
-	destination, err := ui.GetRDNSEntry(r.Dstip)
+	destination, err := utils.GetRDNSEntry(r.Destination)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "GetRDNSEntry failed: %v\n", err)
-		destination = r.Dstip
+		log.Warningf("setValues: %v", err)
+		destination = r.Destination
 	}
 
 	rw.labelHeader.SetText(header)
@@ -60,13 +59,13 @@ func (rw *RequestWindow) setValues(r snitch.ConnRequest) {
 	rw.labelPid.SetText(r.Pid)
 	rw.labelUser.SetText(r.User)
 
-	rw.comboScope.SetCurrentIndex(int(ui.SCOPE_SESSION))
+	rw.comboScope.SetCurrentIndex(int(datastructures.SCOPE_SESSION))
 	rw.comboUser.SetCurrentIndex(0)
-	rw.comboDuration.SetCurrentIndex(int(ui.DURATION_1D))
+	rw.comboDuration.SetCurrentIndex(int(datastructures.DURATION_1D))
 }
 
-func (rw *RequestWindow) getValues() Response {
-	response := Response{
+func (rw *RequestWindow) getValues() datastructures.Response {
+	response := datastructures.Response{
 		Scope:    rw.getScope(),
 		User:     rw.getUser(),
 		Duration: rw.getDuration(),
@@ -74,15 +73,8 @@ func (rw *RequestWindow) getValues() Response {
 	return response
 }
 
-func (rw *RequestWindow) HandleRequest(r snitch.ConnRequest) Response {
+func (rw *RequestWindow) HandleRequest(r datastructures.ConnRequest) datastructures.Response {
 	rw.setValues(r)
 	rw.Show()
 	return <-rw.responseChan
-}
-
-func (r Response) Dump() {
-	fmt.Printf("Scope: %s\n", r.Scope.String())
-	fmt.Printf("User: %s\n", r.User.String())
-	fmt.Printf("Duration: %s\n", r.Duration.String())
-	fmt.Printf("Action: %s\n", r.Action.String())
 }

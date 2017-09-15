@@ -3,6 +3,8 @@ package systray
 import (
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/widgets"
+
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
 type Systray struct {
@@ -13,3 +15,7 @@ type Systray struct {
 	popupMenuDisable *widgets.QAction
 	popupMenuManage  *widgets.QAction
 }
+
+var (
+	log *logger.Logger
+)

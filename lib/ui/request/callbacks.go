@@ -1,9 +1,7 @@
 package request
 
 import (
-	"fmt"
-
-	"github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 )
 
 func (rw *RequestWindow) initCallbacks() {
@@ -17,32 +15,31 @@ func (rw *RequestWindow) initCallbacks() {
 func (rw *RequestWindow) OnWhitelistButtonClicked(clicked bool) {
 	rw.Hide()
 	response := rw.getValues()
-	response.Action = ui.ACTION_WHITELIST
+	response.Action = datastructures.ACTION_WHITELIST
 	rw.responseChan <- response
 }
 
 func (rw *RequestWindow) OnBlockButtonClicked(clicked bool) {
 	rw.Hide()
 	response := rw.getValues()
-	response.Action = ui.ACTION_BLOCK
+	response.Action = datastructures.ACTION_BLOCK
 	rw.responseChan <- response
 }
 
 func (rw *RequestWindow) OnAllowButtonClicked(clicked bool) {
 	rw.Hide()
 	response := rw.getValues()
-	response.Action = ui.ACTION_ALLOW
+	response.Action = datastructures.ACTION_ALLOW
 	rw.responseChan <- response
 }
 
 func (rw *RequestWindow) OnDenyButtonClicked(clicked bool) {
 	rw.Hide()
 	response := rw.getValues()
-	response.Action = ui.ACTION_DENY
+	response.Action = datastructures.ACTION_DENY
 	rw.responseChan <- response
 }
 
 func (rw *RequestWindow) OnClose() {
-	fmt.Printf("Closing window\n")
 	rw.Hide()
 }

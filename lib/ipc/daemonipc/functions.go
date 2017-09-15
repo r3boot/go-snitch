@@ -6,10 +6,8 @@ import (
 
 	"github.com/godbus/dbus"
 
-	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 	"github.com/r3boot/go-snitch/lib/ipc"
-	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/snitch"
 )
 
 func (b DaemonBus) GetRules() (string, *dbus.Error) {
@@ -17,7 +15,7 @@ func (b DaemonBus) GetRules() (string, *dbus.Error) {
 
 	data, err := json.Marshal(ruleset)
 	if err != nil {
-		log.Warningf("DaemonBus.GetRules: Failed to encode json: %v\n", err)
+		log.Warningf("DaemonBus.GetRules: Failed to encode json: %v", err)
 		return "", nil
 	}
 
@@ -25,7 +23,7 @@ func (b DaemonBus) GetRules() (string, *dbus.Error) {
 }
 
 func (b DaemonBus) UpdateRule(data string) (string, *dbus.Error) {
-	newRule := rules.RuleDetail{}
+	newRule := datastructures.RuleDetail{}
 
 	if err := json.Unmarshal([]byte(data), &newRule); err != nil {
 		log.Warningf("DaemonBus.UpdateRule: Failed to unmarshal json: %v", err)
@@ -42,19 +40,19 @@ func (b DaemonBus) UpdateRule(data string) (string, *dbus.Error) {
 
 func (b DaemonBus) DeleteRule(id int) (string, *dbus.Error) {
 	if err := ruleCache.DeleteRule(id); err != nil {
-		log.Warningf("Failed to delete rule: %v", err)
+		log.Warningf("DaemonBus.DeleteRule: Failed to delete rule: %v", err)
 		return err.Error(), nil
 	}
 
 	return "ok", nil
 }
 
-func (dd *DaemonIPCService) GetVerdict(r common.ConnRequest) (int, error) {
+func (dd *DaemonIPCService) GetVerdict(r datastructures.ConnRequest) (datastructures.ResponseType, error) {
 	var err error
 
 	methodName := fmt.Sprintf("%s.GetVerdict", ipc.UI_NAME)
 
-	verdict := snitch.DROP_CONN_ONCE_USER
+	verdict := datastructures.DROP_CONN_ONCE_USER
 	if r.Command == "" {
 		return verdict, fmt.Errorf("DaemonIPCService.GetVerdict: Got request without command")
 	}
@@ -65,7 +63,7 @@ func (dd *DaemonIPCService) GetVerdict(r common.ConnRequest) (int, error) {
 	}
 
 	if err = dd.handler.Call(methodName, 0, string(data)).Store(&verdict); err != nil {
-		return snitch.DROP_CONN_ONCE_USER, fmt.Errorf("DaemonIPCService.GetVerdict: Error in calling dbus: %v\n", err)
+		return datastructures.DROP_CONN_ONCE_USER, fmt.Errorf("DaemonIPCService.GetVerdict: Error in calling dbus: %v", err)
 	}
 
 	return verdict, nil

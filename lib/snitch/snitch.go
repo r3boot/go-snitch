@@ -6,6 +6,7 @@ import (
 
 	"github.com/r3boot/go-snitch/lib/ftrace"
 	"github.com/r3boot/go-snitch/lib/logger"
+	"github.com/r3boot/go-snitch/lib/procfs"
 )
 
 func NewEngine(l *logger.Logger) (*Engine, error) {
@@ -13,6 +14,7 @@ func NewEngine(l *logger.Logger) (*Engine, error) {
 
 	s := &Engine{
 		useFtrace: ftrace.HasFtrace(),
+		procfs: procfs.NewProcFS(l),
 	}
 
 	if s.useFtrace {

@@ -4,7 +4,8 @@ MANAGE = go-snitch-manage
 
 BUILD_DIR = ./build
 COMMANDS_DIR = ./cmd
-HELPERS_DIR = ./helpers
+CALLGRAPH_DIR = ./callgraph
+
 PREFIX = /usr/local
 
 QT_DIR = /usr/lib/qt
@@ -18,17 +19,25 @@ ${DAEMON}:
 
 ${APPLET}:
 	[ -d "${BUILD_DIR}" ] || mkdir -p "${BUILD_DIR}"
-	QT_DIR=${QT_DIR} QT_QMAKE_DIR=${QT_QMAKE_DIR} cd ${COMMANDS_DIR}/${APPLET};\
+	export QT_DIR=${QT_DIR} ; export QT_QMAKE_DIR=${QT_QMAKE_DIR} ; \
+		cd ${COMMANDS_DIR}/${APPLET}; \
 		qtdeploy build desktop
 	install -m 0755 ${COMMANDS_DIR}/${APPLET}/deploy/linux/${APPLET} \
 		${BUILD_DIR}/${APPLET}
 
 ${MANAGE}:
 	[ -d "${BUILD_DIR}" ] || mkdir -p "${BUILD_DIR}"
-	export QT_DIR=${QT_DIR} ; export QT_QMAKE_DIR=${QT_QMAKE_DIR} ; cd ${COMMANDS_DIR}/${MANAGE};\
+	export QT_DIR=${QT_DIR} ; export QT_QMAKE_DIR=${QT_QMAKE_DIR} ; \
+		cd ${COMMANDS_DIR}/${MANAGE}; \
 		qtdeploy build desktop
 	install -m 0755 ${COMMANDS_DIR}/${MANAGE}/deploy/linux/${MANAGE} \
     	${BUILD_DIR}/${MANAGE}
+
+callgraphs:
+	[ -d "${CALLGRAPH_DIR}" ] || mkdir -p "${CALLGRAPH_DIR}"
+	go-callvis ./cmd/${DAEMON} | dot -Tpng -o "${CALLGRAPH_DIR}/${DAEMON}.png"
+	go-callvis ./cmd/${APPLET} | dot -Tpng -o "${CALLGRAPH_DIR}/${APPLET}.png"
+	go-callvis ./cmd/${MANAGE} | dot -Tpng -o "${CALLGRAPH_DIR}/${MANAGE}.png"
 
 install:
 	strip ${BUILD_DIR}/${DAEMON}

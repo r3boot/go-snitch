@@ -32,9 +32,5 @@ func (st *Systray) OnPopupMenuManage(clicked bool) {
 			fmt.Fprintf(os.Stderr, "st.OnPopupMenuManage: failed to run command: %v", err)
 			return
 		}
-
-		if err := cmd.Wait(); err != nil {
-			fmt.Fprintf(os.Stderr, "st.OnPopupMenuManage: failed to wait for command: %v", err)
-		}
 	}()
 }

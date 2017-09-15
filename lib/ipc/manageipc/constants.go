@@ -1,6 +1,10 @@
 package manageipc
 
-import "github.com/godbus/dbus"
+import (
+	"github.com/godbus/dbus"
+
+	"github.com/r3boot/go-snitch/lib/logger"
+)
 
 type ManageIPCService struct {
 	conn   *dbus.Conn
@@ -9,3 +13,7 @@ type ManageIPCService struct {
 }
 
 type ManageBus int
+
+var (
+	log *logger.Logger
+)

@@ -8,6 +8,7 @@ import (
 	"flag"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 	"github.com/r3boot/go-snitch/lib/ipc/daemonipc"
 	"github.com/r3boot/go-snitch/lib/iptables"
 	"github.com/r3boot/go-snitch/lib/logger"
@@ -136,17 +137,18 @@ func main() {
 			// in any way, drop it and continue processing.
 			request, err := engine.ProcessPacket(p.Packet)
 			if err != nil {
-				log.Warningf("Dropping packet: %v", err)
+				log.Warningf("Dropping packet: %v (%s)", err, engine.DumpPacket(p.Packet))
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}
 
-			log.Debugf("Received %s", request)
+			log.Debugf("New %s", request)
 
 			// Check if we have an existing verdict in the rulecache
 			verdict, err := ruleCache.GetVerdict(request)
 			if err != nil {
-				log.Warningf("Error from ruleCache, dropping: %v", err)
+				log.Warningf("Error from ruleCache, dropping: %v (%s)", err, engine.DumpPacket(p.Packet))
+				engine.DumpPacket(p.Packet)
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}
@@ -160,7 +162,8 @@ func main() {
 			// Request a verdict via dbus
 			action, err := ipc.GetVerdict(request)
 			if err != nil {
-				log.Warningf("Error from ipc, dropping: %v", err)
+				log.Warningf("Error from ipc, dropping: %v (%s)", err, engine.DumpPacket(p.Packet))
+				engine.DumpPacket(p.Packet)
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}
@@ -168,51 +171,51 @@ func main() {
 			// Check action to see what we need to do with the packet
 			log.Debugf("Setting verdict via ipc")
 			switch action {
-			case snitch.DROP_APP_ALWAYS_USER,
-				snitch.DROP_APP_ALWAYS_SYSTEM,
-				snitch.DROP_CONN_ALWAYS_USER,
-				snitch.DROP_CONN_ALWAYS_SYSTEM:
+			case datastructures.DROP_APP_ALWAYS_USER,
+				datastructures.DROP_APP_ALWAYS_SYSTEM,
+				datastructures.DROP_CONN_ALWAYS_USER,
+				datastructures.DROP_CONN_ALWAYS_SYSTEM:
 				{
 					verdict = netfilter.NF_DROP
 					if err = ruleCache.AddRule(request, action); err != nil {
 						log.Warningf("Error from ruleCache: %v", err)
 					}
 				}
-			case snitch.ACCEPT_APP_ALWAYS_USER,
-				snitch.ACCEPT_APP_ALWAYS_SYSTEM,
-				snitch.ACCEPT_CONN_ALWAYS_USER,
-				snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
+			case datastructures.ACCEPT_APP_ALWAYS_USER,
+				datastructures.ACCEPT_APP_ALWAYS_SYSTEM,
+				datastructures.ACCEPT_CONN_ALWAYS_USER,
+				datastructures.ACCEPT_CONN_ALWAYS_SYSTEM:
 				{
 					verdict = netfilter.NF_ACCEPT
 					if err = ruleCache.AddRule(request, action); err != nil {
 						log.Warningf("Error from ruleCache: %v\n", err)
 					}
 				}
-			case snitch.DROP_CONN_ONCE_USER,
-				snitch.DROP_CONN_SESSION_USER,
-				snitch.DROP_CONN_ONCE_SYSTEM,
-				snitch.DROP_CONN_SESSION_SYSTEM,
-				snitch.DROP_APP_ONCE_USER,
-				snitch.DROP_APP_SESSION_USER,
-				snitch.DROP_APP_ONCE_SYSTEM,
-				snitch.DROP_APP_SESSION_SYSTEM:
+			case datastructures.DROP_CONN_ONCE_USER,
+				datastructures.DROP_CONN_SESSION_USER,
+				datastructures.DROP_CONN_ONCE_SYSTEM,
+				datastructures.DROP_CONN_SESSION_SYSTEM,
+				datastructures.DROP_APP_ONCE_USER,
+				datastructures.DROP_APP_SESSION_USER,
+				datastructures.DROP_APP_ONCE_SYSTEM,
+				datastructures.DROP_APP_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_DROP
 				}
-			case snitch.ACCEPT_CONN_ONCE_USER,
-				snitch.ACCEPT_CONN_SESSION_USER,
-				snitch.ACCEPT_CONN_ONCE_SYSTEM,
-				snitch.ACCEPT_CONN_SESSION_SYSTEM,
-				snitch.ACCEPT_APP_ONCE_USER,
-				snitch.ACCEPT_APP_SESSION_USER,
-				snitch.ACCEPT_APP_ONCE_SYSTEM,
-				snitch.ACCEPT_APP_SESSION_SYSTEM:
+			case datastructures.ACCEPT_CONN_ONCE_USER,
+				datastructures.ACCEPT_CONN_SESSION_USER,
+				datastructures.ACCEPT_CONN_ONCE_SYSTEM,
+				datastructures.ACCEPT_CONN_SESSION_SYSTEM,
+				datastructures.ACCEPT_APP_ONCE_USER,
+				datastructures.ACCEPT_APP_SESSION_USER,
+				datastructures.ACCEPT_APP_ONCE_SYSTEM,
+				datastructures.ACCEPT_APP_SESSION_SYSTEM:
 				{
 					verdict = netfilter.NF_ACCEPT
 				}
 			default:
 				{
-					log.Warningf("Unknown action found in ipc response: %d\n", action)
+					log.Warningf("Unknown action found in ipc response: %d (%s)\n", action, engine.DumpPacket(p.Packet))
 				}
 			}
 

@@ -3,15 +3,13 @@ package snitch
 import (
 	"fmt"
 	"net"
-	"time"
-
 	"os"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 
-	"github.com/r3boot/go-snitch/lib/common"
-	"github.com/r3boot/go-snitch/lib/kernel"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 )
 
 func (s *Engine) Disable() {
@@ -22,7 +20,27 @@ func (s *Engine) Disable() {
 	}
 }
 
-func (s *Engine) ProcessPacket(packet gopacket.Packet) (common.ConnRequest, error) {
+func (s *Engine) DumpPacket(packet gopacket.Packet) string {
+	var srcport, dstport uint16
+
+	proto := s.GetProto(packet)
+	ipver := s.GetIPVer(packet)
+	srcip, dstip := s.GetIPAddrs(packet)
+	switch proto {
+	case datastructures.PROTO_TCP:
+		srcport, dstport = s.GetTCPPorts(packet)
+	case datastructures.PROTO_UDP:
+		srcport, dstport = s.GetUDPPorts(packet)
+	}
+
+	return fmt.Sprintf("%s %s %s:%d -> %s:%d",
+		datastructures.ProtoToStringMap[ipver],
+		datastructures.ProtoToStringMap[proto],
+		srcip.String(), srcport,
+		dstip.String(), dstport)
+}
+
+func (s *Engine) ProcessPacket(packet gopacket.Packet) (datastructures.ConnRequest, error) {
 	var (
 		srcport, dstport uint16
 	)
@@ -33,33 +51,39 @@ func (s *Engine) ProcessPacket(packet gopacket.Packet) (common.ConnRequest, erro
 	srcip, dstip := s.GetIPAddrs(packet)
 
 	switch proto {
-	case common.PROTO_TCP:
+	case datastructures.PROTO_TCP:
 		srcport, dstport = s.GetTCPPorts(packet)
-	case common.PROTO_UDP:
+	case datastructures.PROTO_UDP:
 		srcport, dstport = s.GetUDPPorts(packet)
 	default:
-		return common.ConnRequest{}, fmt.Errorf("Snitch.ProcessPacket: Unknown protocol: %d", proto)
+		return datastructures.ConnRequest{}, fmt.Errorf("Snitch.ProcessPacket: Unknown protocol: %d", proto)
 	}
 
-	pid, user := kernel.GetPIDAndUser(ipver, proto, srcip, dstip, srcport, dstport)
-	if pid == "0" {
-		return common.ConnRequest{}, fmt.Errorf("Snitch.ProcessPacket: PID not found")
+	pid, user, err := s.procfs.GetPIDAndUser(ipver, proto, srcip, dstip, srcport, dstport)
+	if err != nil {
+		return datastructures.ConnRequest{}, fmt.Errorf("Snitch.ProcessPacket: %v", err)
 	}
 
 	command := ""
 	cmdLine := ""
 	if s.useFtrace {
-		command, cmdLine = s.ftrace.GetCmdline(pid)
-
-		if command == "UNKNOWN" {
+		command, cmdLine, err = s.ftrace.GetCmdline(pid)
+		if err != nil {
 			// Program started before ftrace probe was running?
-			command, cmdLine = kernel.GetCmdLineViaProc(pid)
+			log.Warningf("Snitch.ProcessPacket: %v", err)
+			command, cmdLine, err = s.procfs.GetCmdLineViaProc(pid)
+			if err != nil {
+				return datastructures.ConnRequest{}, fmt.Errorf("Snitch.ProcessPacket: %v", err)
+			}
 		}
 	} else {
-		command, cmdLine = kernel.GetCmdLineViaProc(pid)
+		command, cmdLine, err = s.procfs.GetCmdLineViaProc(pid)
+		if err != nil {
+			return datastructures.ConnRequest{}, fmt.Errorf("Snitch.ProcessPacket: %v", err)
+		}
 	}
 
-	return common.ConnRequest{
+	return datastructures.ConnRequest{
 		Destination: dstip.String(),
 		Port:        fmt.Sprintf("%d", dstport),
 		Proto:       proto,
@@ -71,18 +95,18 @@ func (s *Engine) ProcessPacket(packet gopacket.Packet) (common.ConnRequest, erro
 	}, nil
 }
 
-func (s *Engine) GetProto(packet gopacket.Packet) int {
+func (s *Engine) GetProto(packet gopacket.Packet) datastructures.Proto {
 	if packet.Layer(layers.LayerTypeTCP) != nil {
-		return common.PROTO_TCP
+		return datastructures.PROTO_TCP
 	} else if packet.Layer(layers.LayerTypeUDP) != nil {
-		return common.PROTO_UDP
+		return datastructures.PROTO_UDP
 	} else if packet.Layer(layers.LayerTypeICMPv4) != nil {
-		return common.PROTO_ICMP
+		return datastructures.PROTO_ICMP
 	} else if packet.Layer(layers.LayerTypeICMPv6) != nil {
-		return common.PROTO_ICMP6
+		return datastructures.PROTO_ICMP6
 	}
 
-	return common.PROTO_UNKNOWN
+	return datastructures.PROTO_UNKNOWN
 }
 
 func (s *Engine) GetTCPPorts(packet gopacket.Packet) (uint16, uint16) {
@@ -133,19 +157,19 @@ func (s *Engine) GetICMPv6Code(packet gopacket.Packet) (int, string) {
 	return int(icmp.TypeCode.Code()), icmp.TypeCode.String()
 }
 
-func (s *Engine) GetIPVer(packet gopacket.Packet) int {
+func (s *Engine) GetIPVer(packet gopacket.Packet) datastructures.Proto {
 	if packet.Layer(layers.LayerTypeIPv4) != nil {
-		return common.PROTO_IPV4
+		return datastructures.PROTO_IPV4
 	} else if packet.Layer(layers.LayerTypeIPv6) != nil {
-		return common.PROTO_IPV6
+		return datastructures.PROTO_IPV6
 	}
 
-	return common.PROTO_UNKNOWN
+	return datastructures.PROTO_UNKNOWN
 }
 
 func (s *Engine) GetIPAddrs(packet gopacket.Packet) (net.IP, net.IP) {
 	switch s.GetIPVer(packet) {
-	case common.PROTO_IPV4:
+	case datastructures.PROTO_IPV4:
 		{
 			ipLayer := packet.Layer(layers.LayerTypeIPv4)
 			if ipLayer == nil {
@@ -154,7 +178,7 @@ func (s *Engine) GetIPAddrs(packet gopacket.Packet) (net.IP, net.IP) {
 			ip, _ := ipLayer.(*layers.IPv4)
 			return ip.SrcIP, ip.DstIP
 		}
-	case common.PROTO_IPV6:
+	case datastructures.PROTO_IPV6:
 		{
 			ipLayer := packet.Layer(layers.LayerTypeIPv6)
 			if ipLayer == nil {

@@ -4,17 +4,21 @@ import (
 	"fmt"
 
 	"github.com/godbus/dbus"
+
 	"github.com/r3boot/go-snitch/lib/ipc"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
-func NewManageIPCService() (*ManageIPCService, error) {
+func NewManageIPCService(l *logger.Logger) (*ManageIPCService, error) {
 	var err error
+
+	log = l
 
 	manageipc := &ManageIPCService{}
 
 	manageipc.conn, err = dbus.SystemBus()
 	if err != nil {
-		return nil, fmt.Errorf("NewIPCService failed to connect to system bus: %v", err)
+		return nil, fmt.Errorf("NewManageIPCService: failed to connect to system bus: %v", err)
 	}
 
 	manageipc.daemon = manageipc.conn.Object(ipc.DAEMON_NAME, ipc.DAEMON_PATH)

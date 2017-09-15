@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
-	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 	"github.com/r3boot/go-snitch/lib/logger"
 )
 
@@ -20,27 +20,27 @@ func NewRuleCache(l *logger.Logger, dbpath string) (*RuleCache, error) {
 
 	cache := &RuleCache{
 		backend: db,
-		ruleset: make(Ruleset, MAX_CACHE_SIZE),
+		ruleset: make(datastructures.Ruleset, MAX_CACHE_SIZE),
 	}
 
 	return cache, nil
 }
 
-func (cache *RuleCache) GetVerdict(r common.ConnRequest) (netfilter.Verdict, error) {
+func (cache *RuleCache) GetVerdict(r datastructures.ConnRequest) (netfilter.Verdict, error) {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 
 	isAppRule := true
-	foundRules := Ruleset{}
-	matchingRule := RuleItem{}
+	foundRules := datastructures.Ruleset{}
+	matchingRule := datastructures.RuleItem{}
 
 	// Get all rules matching command
 	for _, rule := range cache.ruleset {
-		if rule.Cmd != r.Command {
+		if rule.Command != r.Command {
 			continue
 		}
 
-		if rule.Dstip != "" {
+		if rule.Destination != "" {
 			isAppRule = false
 		}
 		foundRules = append(foundRules, rule)
@@ -54,12 +54,12 @@ func (cache *RuleCache) GetVerdict(r common.ConnRequest) (netfilter.Verdict, err
 	// Check if we have a rule which matches on ip+port+proto
 	if !isAppRule {
 		for _, rule := range foundRules {
-			if r.Destination == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
+			if r.Destination == rule.Destination && r.Port == rule.Port && r.Proto == rule.Proto {
 				matchingRule = rule
 				break
 			}
 		}
-		if matchingRule.Cmd == "" {
+		if matchingRule.Command == "" {
 			return netfilter.NF_UNDEF, nil
 		}
 	} else {
@@ -82,7 +82,7 @@ func (cache *RuleCache) GetVerdict(r common.ConnRequest) (netfilter.Verdict, err
 	return netfilter.NF_UNDEF, nil
 }
 
-func (cache *RuleCache) AddRule(r common.ConnRequest, action int) error {
+func (cache *RuleCache) AddRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
 	err := cache.backend.AddRule(r, action)
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (cache *RuleCache) DeleteRule(id int) error {
 	return nil
 }
 
-func (cache *RuleCache) UpdateRule(newRule RuleDetail) error {
+func (cache *RuleCache) UpdateRule(newRule datastructures.RuleDetail) error {
 	err := cache.backend.UpdateRule(newRule)
 	if err != nil {
 		return err
@@ -129,6 +129,6 @@ func (cache *RuleCache) Prime() error {
 	return nil
 }
 
-func (cache *RuleCache) GetRules() []RuleItem {
+func (cache *RuleCache) GetRules() datastructures.Ruleset {
 	return cache.ruleset
 }

@@ -6,8 +6,7 @@ import (
 
 	"github.com/therecipe/qt/gui"
 
-	"github.com/r3boot/go-snitch/lib/rules"
-	"github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 )
 
 func (mw *ManageWindow) Show() {
@@ -27,41 +26,34 @@ func (mw *ManageWindow) GetRuleMeta(cmd string) RuleMeta {
 	return meta
 }
 
-func (mw *ManageWindow) fetchRules(ruleType ui.RuleType) {
-	var ruleset []rules.RuleItem
+func (mw *ManageWindow) fetchRules(ruleType datastructures.RuleType) {
+	var ruleset datastructures.Ruleset
 	var err error
 
 	switch ruleType {
-	case ui.TYPE_DB:
+	case datastructures.TYPE_DB:
 		ruleset, err = mw.ipc.GetDBRules()
-	case ui.TYPE_SESSION:
+	case datastructures.TYPE_SESSION:
 		ruleset, err = mw.ipc.GetClientRules()
 	default:
-		fmt.Fprintf(os.Stderr, "mw.fetchRules: no such ruletype: %d", ruleType)
+		fmt.Fprintf(os.Stderr, "ManageWindow.fetchRules: no such ruletype: %d", ruleType)
 		return
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "mw.fetchRules: failed to retrieve rules: %v", err)
+		fmt.Fprintf(os.Stderr, "ManageWindow.fetchRules: failed to retrieve rules: %v", err)
 		return
 	}
 
 	for _, rule := range ruleset {
-		meta := mw.GetRuleMeta(rule.Cmd)
-		verdict := ui.VERDICT_REJECT
-		switch ruleType {
-		case ui.TYPE_DB:
-			verdict = ui.NFVerdictToVerdict(rule.Verdict)
-		case ui.TYPE_SESSION:
-			verdict = ui.SnitchVerdictToVerdict(rule.Verdict)
-		}
-		if rule.Dstip == "" {
+		meta := mw.GetRuleMeta(rule.Command)
+		if rule.Destination == "" {
 			meta.IsAppRule = true
 			rule := RuleItem{
 				Id:        rule.Id,
 				User:      rule.User,
 				Duration:  rule.Duration,
-				Verdict:   verdict,
+				Verdict:   rule.Verdict,
 				Timestamp: rule.Timestamp,
 				RuleType:  ruleType,
 			}
@@ -69,26 +61,26 @@ func (mw *ManageWindow) fetchRules(ruleType ui.RuleType) {
 		} else {
 			rule := RuleItem{
 				Id:          rule.Id,
-				Destination: rule.Dstip,
+				Destination: rule.Destination,
 				Port:        rule.Port,
-				Proto:       ui.ProtoIntMap[rule.Proto],
+				Proto:       rule.Proto,
 				User:        rule.User,
 				Duration:    rule.Duration,
-				Verdict:     verdict,
+				Verdict:     rule.Verdict,
 				Timestamp:   rule.Timestamp,
 				RuleType:    ruleType,
 			}
 			meta.Rules = append(meta.Rules, rule)
 		}
-		mw.ruleset[rule.Cmd] = meta
+		mw.ruleset[rule.Command] = meta
 	}
 
 }
 
 func (mw *ManageWindow) fetchAllRules() {
 	mw.ruleset = make(map[string]RuleMeta)
-	mw.fetchRules(ui.TYPE_DB)
-	mw.fetchRules(ui.TYPE_SESSION)
+	mw.fetchRules(datastructures.TYPE_DB)
+	mw.fetchRules(datastructures.TYPE_SESSION)
 }
 
 func (mw *ManageWindow) LoadRules() {

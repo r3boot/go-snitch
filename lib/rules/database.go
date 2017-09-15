@@ -9,9 +9,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
-	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/datastructures"
 	"github.com/r3boot/go-snitch/lib/logger"
-	"github.com/r3boot/go-snitch/lib/snitch"
 )
 
 func NewRuleDB(l *logger.Logger, dbpath string) (*RuleDB, error) {
@@ -57,7 +56,7 @@ func (db *RuleDB) Connect() error {
 	return nil
 }
 
-func (db *RuleDB) GetVerdict(r common.ConnRequest) (netfilter.Verdict, error) {
+func (db *RuleDB) GetVerdict(r datastructures.ConnRequest) (netfilter.Verdict, error) {
 	verdict := netfilter.NF_UNDEF
 
 	db.mutex.RLock()
@@ -70,18 +69,18 @@ func (db *RuleDB) GetVerdict(r common.ConnRequest) (netfilter.Verdict, error) {
 	defer response.Close()
 
 	isAppRule := true
-	foundRules := []RuleItem{}
-	matchingRule := RuleItem{}
+	foundRules := datastructures.Ruleset{}
+	matchingRule := datastructures.RuleItem{}
 
 	// Get all rules in database
 	for response.Next() {
-		item := RuleItem{}
-		err = response.Scan(&item.Id, &item.Cmd, &item.Verdict, &item.Dstip,
+		item := datastructures.RuleItem{}
+		err = response.Scan(&item.Id, &item.Command, &item.Verdict, &item.Destination,
 			&item.Port, &item.Proto, &item.User, &item.Timestamp, &item.Duration)
 		if err != nil {
 			return netfilter.NF_UNDEF, fmt.Errorf("rules: Failed to get verdict from app table: %v", err)
 		}
-		if item.Dstip != "" {
+		if item.Destination != "" {
 			isAppRule = false
 		}
 		foundRules = append(foundRules, item)
@@ -95,12 +94,12 @@ func (db *RuleDB) GetVerdict(r common.ConnRequest) (netfilter.Verdict, error) {
 	// Check if we have a rule which matches on ip+port+proto
 	if !isAppRule {
 		for _, rule := range foundRules {
-			if r.Destination == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
+			if r.Destination == rule.Destination && r.Port == rule.Port && r.Proto == rule.Proto {
 				matchingRule = rule
 				break
 			}
 		}
-		if matchingRule.Cmd == "" {
+		if matchingRule.Command == "" {
 			return netfilter.NF_UNDEF, nil
 		}
 	} else {
@@ -123,16 +122,16 @@ func (db *RuleDB) GetVerdict(r common.ConnRequest) (netfilter.Verdict, error) {
 	return netfilter.NF_UNDEF, nil
 }
 
-func (db *RuleDB) AddAppRule(r common.ConnRequest, action int) error {
+func (db *RuleDB) AddAppRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
 	db.mutex.Lock()
 
 	verdict := netfilter.NF_UNDEF
 	switch action {
-	case snitch.DROP_APP_ALWAYS_USER, snitch.DROP_APP_ALWAYS_SYSTEM:
+	case datastructures.DROP_APP_ALWAYS_USER, datastructures.DROP_APP_ALWAYS_SYSTEM:
 		{
 			verdict = netfilter.NF_DROP
 		}
-	case snitch.ACCEPT_APP_ALWAYS_USER, snitch.ACCEPT_APP_ALWAYS_SYSTEM:
+	case datastructures.ACCEPT_APP_ALWAYS_USER, datastructures.ACCEPT_APP_ALWAYS_SYSTEM:
 		{
 			verdict = netfilter.NF_ACCEPT
 		}
@@ -153,16 +152,16 @@ func (db *RuleDB) AddAppRule(r common.ConnRequest, action int) error {
 	return nil
 }
 
-func (db *RuleDB) AddConnRule(r common.ConnRequest, action int) error {
+func (db *RuleDB) AddConnRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
 	db.mutex.Lock()
 
 	verdict := netfilter.NF_UNDEF
 	switch action {
-	case snitch.DROP_CONN_ALWAYS_USER, snitch.DROP_CONN_ALWAYS_SYSTEM:
+	case datastructures.DROP_CONN_ALWAYS_USER, datastructures.DROP_CONN_ALWAYS_SYSTEM:
 		{
 			verdict = netfilter.NF_DROP
 		}
-	case snitch.ACCEPT_CONN_ALWAYS_USER, snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
+	case datastructures.ACCEPT_CONN_ALWAYS_USER, datastructures.ACCEPT_CONN_ALWAYS_SYSTEM:
 		{
 			verdict = netfilter.NF_ACCEPT
 		}
@@ -183,18 +182,18 @@ func (db *RuleDB) AddConnRule(r common.ConnRequest, action int) error {
 	return nil
 }
 
-func (db *RuleDB) AddRule(r common.ConnRequest, action int) error {
+func (db *RuleDB) AddRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
 	r.Duration = time.Duration(0)
 
 	switch action {
-	case snitch.DROP_APP_ALWAYS_USER, snitch.DROP_APP_ALWAYS_SYSTEM, snitch.ACCEPT_APP_ALWAYS_USER, snitch.ACCEPT_APP_ALWAYS_SYSTEM:
+	case datastructures.DROP_APP_ALWAYS_USER, datastructures.DROP_APP_ALWAYS_SYSTEM, datastructures.ACCEPT_APP_ALWAYS_USER, datastructures.ACCEPT_APP_ALWAYS_SYSTEM:
 		{
 			if err := db.DeleteConnRulesFor(r.Command); err != nil {
 				return fmt.Errorf("Failed to delete conn rules: %v\n", err)
 			}
 			return db.AddAppRule(r, action)
 		}
-	case snitch.DROP_CONN_ALWAYS_USER, snitch.DROP_CONN_ALWAYS_SYSTEM, snitch.ACCEPT_CONN_ALWAYS_USER, snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
+	case datastructures.DROP_CONN_ALWAYS_USER, datastructures.DROP_CONN_ALWAYS_SYSTEM, datastructures.ACCEPT_CONN_ALWAYS_USER, datastructures.ACCEPT_CONN_ALWAYS_SYSTEM:
 		{
 			// Is conn rule
 			return db.AddConnRule(r, action)
@@ -238,7 +237,7 @@ func (db *RuleDB) DeleteRule(id int) error {
 	return nil
 }
 
-func (db *RuleDB) UpdateRule(newRule RuleDetail) error {
+func (db *RuleDB) UpdateRule(newRule datastructures.RuleDetail) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -248,18 +247,18 @@ func (db *RuleDB) UpdateRule(newRule RuleDetail) error {
 	}
 
 	verdict := netfilter.NF_UNDEF
-	switch newRule.Action {
-	case "accept":
+	switch newRule.Verdict {
+	case datastructures.VERDICT_ACCEPT:
 		{
 			verdict = netfilter.NF_ACCEPT
 		}
-	case "drop":
+	case datastructures.VERDICT_REJECT:
 		{
 			verdict = netfilter.NF_DROP
 		}
 	}
 
-	_, err = statement.Exec(newRule.Dstip, newRule.Port, newRule.Proto, newRule.User, verdict, newRule.Duration, newRule.Id)
+	_, err = statement.Exec(newRule.Destination, newRule.Port, newRule.Proto, newRule.User, verdict, newRule.Duration, newRule.Id)
 	if err != nil {
 		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
 	}
@@ -267,8 +266,8 @@ func (db *RuleDB) UpdateRule(newRule RuleDetail) error {
 	return nil
 }
 
-func (db *RuleDB) GetAllRules() ([]RuleItem, error) {
-	ruleset := []RuleItem{}
+func (db *RuleDB) GetAllRules() (datastructures.Ruleset, error) {
+	ruleset := datastructures.Ruleset{}
 
 	db.mutex.RLock()
 	defer db.mutex.RUnlock()
@@ -280,20 +279,20 @@ func (db *RuleDB) GetAllRules() ([]RuleItem, error) {
 	defer response.Close()
 
 	for response.Next() {
-		rule := RuleItem{}
+		rule := datastructures.RuleItem{}
 		var dstip sql.NullString
 		var port sql.NullString
 		var proto sql.NullInt64
 
-		err = response.Scan(&rule.Id, &rule.Cmd, &rule.Verdict, &dstip,
+		err = response.Scan(&rule.Id, &rule.Command, &rule.Verdict, &dstip,
 			&port, &proto, &rule.User, &rule.Timestamp, &rule.Duration)
 		if err != nil {
 			log.Infof("db.GetAllRules: Failed to parse entry: %v\n", err)
 			continue
 		}
-		rule.Dstip = dstip.String
+		rule.Destination = dstip.String
 		rule.Port = port.String
-		rule.Proto = int(proto.Int64)
+		rule.Proto = datastructures.Proto(proto.Int64)
 
 		ruleset = append(ruleset, rule)
 	}
