@@ -16,7 +16,7 @@ func (mw *ManageWindow) Show() {
 }
 
 func (mw *ManageWindow) Hide() {
-	mw.window.Hide()
+	mw.window.Close()
 }
 
 func (mw *ManageWindow) GetRuleMeta(cmd string) RuleMeta {

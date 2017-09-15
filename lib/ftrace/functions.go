@@ -1,133 +1,16 @@
-package kernel
+package ftrace
 
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"regexp"
+
+	"github.com/r3boot/go-snitch/lib/utils"
 )
-
-type Proc struct {
-	Filename string
-	Args     string
-}
-
-type ProcMon struct {
-	Procs map[string]*Proc
-}
-
-func NewProcMon() *ProcMon {
-	return &ProcMon{}
-}
-
-func (pm *ProcMon) GetCmdline(pid string) (string, string) {
-	fmt.Printf("pm.Procs[pid]: %v\n", pm.Procs[pid])
-	entry, ok := pm.Procs[pid]
-	if !ok {
-		return "UNKNOWN", "UNKNOWN"
-	}
-	return entry.Filename, entry.Args
-}
-
-func writeFile(path string, value []byte) error {
-	var (
-		fs         os.FileInfo
-		fd         *os.File
-		numWritten int
-		err        error
-	)
-
-	if fs, err = os.Stat(path); err != nil {
-		return err
-	}
-
-	if fs.IsDir() {
-		return errors.New("stat " + path + ": is a directory")
-	}
-
-	if fd, err = os.OpenFile(path, os.O_WRONLY, 0644); err != nil {
-		return err
-	}
-	defer fd.Close()
-
-	if numWritten, err = fd.Write(value); err != nil {
-		return err
-	}
-
-	if numWritten != 1 {
-		return errors.New("write " + path + ": corrupt write")
-	}
-
-	return nil
-}
-
-func enableTrace(ev string) error {
-	var (
-		value []byte
-		err   error
-	)
-
-	value = make([]byte, 1)
-	value[0] = ONE
-
-	if err = writeFile(TRACE_PATH+ev+"/enable", value); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func disableTrace(ev string) error {
-	var (
-		value []byte
-		err   error
-	)
-
-	value = make([]byte, 1)
-	value[0] = ZERO
-
-	if err = writeFile(TRACE_PATH+ev+"/enable", value); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func enableProbe() error {
-	var (
-		value []byte
-		err   error
-	)
-
-	value = make([]byte, 1)
-	value[0] = ONE
-
-	if err = writeFile(KPROBE_PATH+PROBE_NAME+"/enable", value); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func disableProbe() error {
-	var (
-		value []byte
-		err   error
-	)
-
-	value = make([]byte, 1)
-	value[0] = ZERO
-
-	if err = writeFile(KPROBE_PATH+PROBE_NAME+"/enable", value); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 func HasFtrace() bool {
 	var (
@@ -143,7 +26,80 @@ func HasFtrace() bool {
 	return false
 }
 
-func (pm *ProcMon) Enable() error {
+func (pm *Ftrace) GetCmdline(pid string) (string, string) {
+	entry, ok := pm.procmap[pid]
+	if !ok {
+		log.Warningf("Ftrace.GetCmdline: PID %d not found in procmap", pid)
+		return "UNKNOWN", "UNKNOWN"
+	}
+	return entry.Filename, entry.Args
+}
+
+func (pm *Ftrace) enableTrace(ev string) error {
+	var (
+		value []byte
+		err   error
+	)
+
+	value = make([]byte, 1)
+	value[0] = ONE
+
+	if err = utils.WriteToFile(TRACE_PATH+ev+"/enable", value); err != nil {
+		return fmt.Errorf("enableTrace: %v", err)
+	}
+
+	return nil
+}
+
+func (pm *Ftrace) disableTrace(ev string) error {
+	var (
+		value []byte
+		err   error
+	)
+
+	value = make([]byte, 1)
+	value[0] = ZERO
+
+	if err = utils.WriteToFile(TRACE_PATH+ev+"/enable", value); err != nil {
+		return fmt.Errorf("disableTrace: %v", err)
+	}
+
+	return nil
+}
+
+func (pm *Ftrace) enableProbe() error {
+	var (
+		value []byte
+		err   error
+	)
+
+	value = make([]byte, 1)
+	value[0] = ONE
+
+	if err = utils.WriteToFile(KPROBE_PATH+PROBE_NAME+"/enable", value); err != nil {
+		return fmt.Errorf("enableProbe: %v", err)
+	}
+
+	return nil
+}
+
+func (pm *Ftrace) disableProbe() error {
+	var (
+		value []byte
+		err   error
+	)
+
+	value = make([]byte, 1)
+	value[0] = ZERO
+
+	if err = utils.WriteToFile(KPROBE_PATH+PROBE_NAME+"/enable", value); err != nil {
+		return fmt.Errorf("disableProbe: %v", err)
+	}
+
+	return nil
+}
+
+func (pm *Ftrace) Enable() error {
 	var (
 		i            int
 		fs           os.FileInfo
@@ -153,18 +109,18 @@ func (pm *ProcMon) Enable() error {
 	)
 
 	// echo 1 > /sys/kernel/debug/tracing/events/kprobes/sched_process_fork/enable
-	if err = enableTrace(TRACE_FORK); err != nil {
-		return err
+	if err = pm.enableTrace(TRACE_FORK); err != nil {
+		return fmt.Errorf("Ftrace.Enable: %v", err)
 	}
 
 	// echo 1 > /sys/kernel/debug/tracing/events/kprobes/sched_process_exec/enable
-	if err = enableTrace(TRACE_EXEC); err != nil {
-		return err
+	if err = pm.enableTrace(TRACE_EXEC); err != nil {
+		return fmt.Errorf("Ftrace.Enable: %v", err)
 	}
 
 	// echo 1 > /sys/kernel/debug/tracing/events/kprobes/sched_process_quit/enable
-	if err = enableTrace(TRACE_EXIT); err != nil {
-		return err
+	if err = pm.enableTrace(TRACE_EXIT); err != nil {
+		return fmt.Errorf("Ftrace.Enable: %v", err)
 	}
 
 	// echo "..." > /sys/kernel/debug/tracing/kprobe_events
@@ -174,32 +130,32 @@ func (pm *ProcMon) Enable() error {
 	}
 
 	if fs, err = os.Stat(KPROBE_EVENTS_PATH); err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Enable: %v", KPROBE_EVENTS_PATH, err)
 	}
 
 	if fs.IsDir() {
-		return errors.New("stat " + KPROBE_EVENTS_PATH + ": is a directory")
+		return fmt.Errorf("Ftrace.Enable: stat " + KPROBE_EVENTS_PATH + ": is a directory")
 	}
 
 	if fd, err = os.OpenFile(KPROBE_EVENTS_PATH, os.O_WRONLY, 0644); err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Enable: %v", err)
 	}
 	defer fd.Close()
 
 	_, err = fd.Write([]byte(probe_config))
 	if err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Enable: %v", err)
 	}
 
 	// echo 1 > /sys/kernel/debug/tracing/events/kprobes/snitch_sys_execve/enable
-	if err = enableProbe(); err != nil {
-		return err
+	if err = pm.enableProbe(); err != nil {
+		return fmt.Errorf("Ftrace.Enable: %v", err)
 	}
 
 	return nil
 }
 
-func (pm *ProcMon) Disable() error {
+func (pm *Ftrace) Disable() error {
 	var (
 		fs  os.FileInfo
 		fd  *os.File
@@ -207,32 +163,32 @@ func (pm *ProcMon) Disable() error {
 	)
 
 	// echo 0 > /sys/kernel/debug/tracing/events/sched/sched_process_fork/enable
-	if err = disableTrace(TRACE_FORK); err != nil {
-		return err
+	if err = pm.disableTrace(TRACE_FORK); err != nil {
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 
 	// echo 0 > /sys/kernel/debug/tracing/events/sched/sched_process_exec/enable
-	if err = disableTrace(TRACE_EXEC); err != nil {
-		return err
+	if err = pm.disableTrace(TRACE_EXEC); err != nil {
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 
 	// echo 0 > /sys/kernel/debug/tracing/events/sched/sched_process_quit/enable
-	if err = disableTrace(TRACE_EXIT); err != nil {
-		return err
+	if err = pm.disableTrace(TRACE_EXIT); err != nil {
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 
 	// echo 0 > /sys/kernel/debug/tracing/events/kprobes/snitch_sys_execve/enable
-	if err = disableProbe(); err != nil {
-		return err
+	if err = pm.disableProbe(); err != nil {
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 
 	// echo "-:snitch_sys_execve" > /sys/kernel/debug/tracing/kprobe_events
 	if fs, err = os.Stat(KPROBE_EVENTS_PATH); err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 
 	if fs.IsDir() {
-		return errors.New("stat " + KPROBE_EVENTS_PATH + ": is a directory")
+		return fmt.Errorf("Ftrace.Disable: stat " + KPROBE_EVENTS_PATH + ": is a directory")
 	}
 
 	if fd, err = os.OpenFile(KPROBE_EVENTS_PATH, os.O_WRONLY, 0644); err != nil {
@@ -243,30 +199,30 @@ func (pm *ProcMon) Disable() error {
 	// echo "" > /sys/kernel/debug/tracing/trace
 	_, err = fd.Write([]byte("-:" + PROBE_NAME))
 	if err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 
 	if fs, err = os.Stat(TRACE_INFO_PATH); err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 
 	if fs.IsDir() {
-		return errors.New("stat " + TRACE_INFO_PATH + ": is a directory")
+		return fmt.Errorf("Ftrace.Disable: stat " + TRACE_INFO_PATH + ": is a directory")
 	}
 
 	if fd, err = os.OpenFile(TRACE_INFO_PATH, os.O_WRONLY, 0644); err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 	defer fd.Close()
 
 	_, err = fd.Write([]byte(""))
 	if err != nil {
-		return err
+		return fmt.Errorf("Ftrace.Disable: %v", err)
 	}
 	return nil
 }
 
-func (pm *ProcMon) Slurp() error {
+func (pm *Ftrace) Slurp() {
 	var (
 		fs             os.FileInfo
 		fd             *os.File
@@ -290,15 +246,18 @@ func (pm *ProcMon) Slurp() error {
 	)
 
 	if fs, err = os.Stat(TRACE_PIPE); err != nil {
-		return err
+		log.Warningf("Ftrace.Slurp: %v", err)
+		return
 	}
 
 	if fs.IsDir() {
-		return errors.New("stat " + TRACE_PIPE + ": is a directory")
+		log.Warningf("Ftrace.Slurp: stat " + TRACE_PIPE + ": is a directory")
+		return
 	}
 
 	if fd, err = os.OpenFile(TRACE_PIPE, os.O_RDONLY, 0644); err != nil {
-		return err
+		log.Warningf("Ftrace.Slurp: %v", err)
+		return
 	}
 
 	probeName_b = []byte(PROBE_NAME)
@@ -308,13 +267,12 @@ func (pm *ProcMon) Slurp() error {
 	reEventExec = regexp.MustCompile(RE_EVENT_EXEC)
 	reEventExit = regexp.MustCompile(RE_EVENT_EXIT)
 
-	pm.Procs = make(map[string]*Proc, MAX_PROCS)
-
 	buf = bufio.NewReader(fd)
 
 	for {
 		line, slurpErr = buf.ReadBytes('\n')
 		if slurpErr != nil && slurpErr != io.EOF {
+			log.Warningf("Ftrace.Slurp: Error from reading trace pipe: %v", err)
 			break
 		}
 
@@ -342,7 +300,7 @@ func (pm *ProcMon) Slurp() error {
 				args += " " + allArgs[i][1]
 			}
 
-			pm.Procs[pid] = &Proc{
+			pm.procmap[pid] = &Proc{
 				Args: args,
 			}
 		} else {
@@ -361,12 +319,12 @@ func (pm *ProcMon) Slurp() error {
 					filename = allExecMatches[0][1]
 					pid = allExecMatches[0][2]
 
-					if _, ok := pm.Procs[pid]; !ok {
-						fmt.Printf("UpdateProc: no such pid: %d\n", pid)
+					if _, ok := pm.procmap[pid]; !ok {
+						log.Warningf("Ftrace.Slurp: Failed to update PID %s; not found in pidmap", pid)
 						continue
 					}
 
-					pm.Procs[pid].Filename = filename
+					pm.procmap[pid].Filename = filename
 
 				}
 			case EV_EXIT:
@@ -375,8 +333,8 @@ func (pm *ProcMon) Slurp() error {
 
 					pid = allExitMatches[0][1]
 
-					if _, ok := pm.Procs[pid]; ok {
-						delete(pm.Procs, pid)
+					if _, ok := pm.procmap[pid]; ok {
+						delete(pm.procmap, pid)
 						continue
 					}
 				}
@@ -385,5 +343,5 @@ func (pm *ProcMon) Slurp() error {
 		}
 	}
 
-	return nil
+	return
 }

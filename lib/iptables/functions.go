@@ -1,4 +1,4 @@
-package kernel
+package iptables
 
 import (
 	"bufio"
@@ -9,42 +9,23 @@ import (
 	"strings"
 )
 
-type Netfilter struct {
-	iptables     string
-	ip6tables    string
-	ip4Resolvers []string
-	ip6Resolvers []string
-}
-
-func NewNetfilter(iptables string, ip6tables string) *Netfilter {
-	nf := &Netfilter{
-		iptables:     iptables,
-		ip6tables:    ip6tables,
-		ip4Resolvers: make([]string, MAX_RESOLVERS),
-		ip6Resolvers: make([]string, MAX_RESOLVERS),
-	}
-	return nf
-}
-
-func (nf *Netfilter) ip4rule(rule string) {
+func (nf *Iptables) ip4rule(rule string) {
 	cmd := exec.Command(nf.iptables, strings.Split(rule, " ")...)
 	err := cmd.Start()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to run iptables: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Netfilter.ip4rule: Failed to run iptables: %v", err)
 	}
 }
 
-func (nf *Netfilter) ip6rule(rule string) {
+func (nf *Iptables) ip6rule(rule string) {
 	cmd := exec.Command(nf.ip6tables, strings.Split(rule, " ")...)
 	err := cmd.Start()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to run ip6tables: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Netfilter.ip6rule: Failed to run ip6tables: %v", err)
 	}
 }
 
-func (nf *Netfilter) SetupRules() {
+func (nf *Iptables) SetupRules() error {
 	// For now, only filter TCP and UDP
 	nf.ip4rule("-I OUTPUT -m tcp -p tcp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
 	nf.ip4rule("-I OUTPUT -m udp -p udp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
@@ -56,10 +37,11 @@ func (nf *Netfilter) SetupRules() {
 	nf.ip6rule("-I OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
 	nf.ip6rule("-I OUTPUT -o lo -j ACCEPT")
 
-	nf.AllowResolvers()
+	return nf.AllowResolvers()
+
 }
 
-func (nf *Netfilter) CleanupRules() {
+func (nf *Iptables) CleanupRules() {
 	nf.ip4rule("-D OUTPUT -m tcp -p tcp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
 	nf.ip4rule("-D OUTPUT -m udp -p udp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
 	nf.ip4rule("-D OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
@@ -69,11 +51,9 @@ func (nf *Netfilter) CleanupRules() {
 	nf.ip6rule("-D OUTPUT -m udp -p udp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
 	nf.ip6rule("-D OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
 	nf.ip6rule("-D OUTPUT -o lo -j ACCEPT")
-
-	nf.RemoveResolvers()
 }
 
-func (nf *Netfilter) RemoveResolvers() {
+func (nf *Iptables) RemoveResolvers() {
 	// Remove existing resolvers
 	for _, ip := range nf.ip4Resolvers {
 		nf.ip4rule("-D OUTPUT -d " + ip + " -m tcp -p tcp --dport 53 -m conntrack --ctstate NEW -j ACCEPT")
@@ -86,11 +66,11 @@ func (nf *Netfilter) RemoveResolvers() {
 	}
 }
 
-func (nf *Netfilter) AllowResolvers() error {
+func (nf *Iptables) AllowResolvers() error {
 	// Add new resolvers
 	fd, err := os.Open("/etc/resolv.conf")
 	if err != nil {
-		return fmt.Errorf("Failed to read resolv.conf: %v", err)
+		return fmt.Errorf("Netfilter.AllowResolvers: Failed to read resolv.conf: %v", err)
 	}
 	defer fd.Close()
 

@@ -3,27 +3,35 @@ package rules
 import (
 	"time"
 
+	"fmt"
+
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
-	"github.com/r3boot/go-snitch/lib/snitch"
+	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
-func NewRuleCache(dbpath string) *RuleCache {
-	db := NewRuleDB(dbpath)
+func NewRuleCache(l *logger.Logger, dbpath string) (*RuleCache, error) {
+	log = l
+
+	db, err := NewRuleDB(nil, dbpath)
+	if err != nil {
+		return nil, fmt.Errorf("NewRuleCache: %v", err)
+	}
 
 	cache := &RuleCache{
 		backend: db,
-		ruleset: make([]RuleItem, MAX_CACHE_SIZE),
+		ruleset: make(Ruleset, MAX_CACHE_SIZE),
 	}
 
-	return cache
+	return cache, nil
 }
 
-func (cache *RuleCache) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
+func (cache *RuleCache) GetVerdict(r common.ConnRequest) (netfilter.Verdict, error) {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 
 	isAppRule := true
-	foundRules := []RuleItem{}
+	foundRules := Ruleset{}
 	matchingRule := RuleItem{}
 
 	// Get all rules matching command
@@ -46,7 +54,7 @@ func (cache *RuleCache) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, err
 	// Check if we have a rule which matches on ip+port+proto
 	if !isAppRule {
 		for _, rule := range foundRules {
-			if r.Dstip == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
+			if r.Destination == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
 				matchingRule = rule
 				break
 			}
@@ -74,7 +82,7 @@ func (cache *RuleCache) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, err
 	return netfilter.NF_UNDEF, nil
 }
 
-func (cache *RuleCache) AddRule(r snitch.ConnRequest, action int) error {
+func (cache *RuleCache) AddRule(r common.ConnRequest, action int) error {
 	err := cache.backend.AddRule(r, action)
 	if err != nil {
 		return err

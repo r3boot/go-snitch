@@ -2,6 +2,7 @@ package handleripc
 
 import (
 	"github.com/godbus/dbus"
+
 	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/ui/request"
 )

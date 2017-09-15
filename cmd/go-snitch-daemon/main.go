@@ -1,65 +1,109 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"flag"
+
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
-	"github.com/r3boot/go-snitch/lib/ipc"
-	"github.com/r3boot/go-snitch/lib/kernel"
+	"github.com/r3boot/go-snitch/lib/ipc/daemonipc"
+	"github.com/r3boot/go-snitch/lib/iptables"
+	"github.com/r3boot/go-snitch/lib/logger"
 	"github.com/r3boot/go-snitch/lib/rules"
 	"github.com/r3boot/go-snitch/lib/snitch"
 )
 
+const (
+	D_DEBUG     bool   = false
+	D_TIMESTAMP bool   = false
+	D_DATABASE  string = "/var/lib/go-snitch.db"
+)
+
+var (
+	log         *logger.Logger
+	nfq         *netfilter.NFQueue
+	packetQueue <-chan netfilter.NFPacket
+	ruleCache   *rules.RuleCache
+	ipc         *daemonipc.DaemonIPCService
+	ipt         *iptables.Iptables
+	engine      *snitch.Engine
+
+	useDebug     = flag.Bool("d", D_DEBUG, "Use debug output")
+	useTimestamp = flag.Bool("t", D_TIMESTAMP, "Use timestamp in output")
+	ruleDatabase = flag.String("database", D_DATABASE, "Path to database")
+)
+
+func init() {
+	var err error
+
+	flag.Parse()
+
+	// Initialize logging framework
+	log = logger.NewLogger(*useTimestamp, *useDebug)
+
+	// Initialize Netfilter userspace queue
+	nfq, err = netfilter.NewNFQueue(0, 100, netfilter.NF_DEFAULT_PACKET_SIZE)
+	if err != nil {
+		log.Fatalf("Failed to initialize netfilter queue: %v", err)
+	}
+
+	// Setup packet queue
+	packetQueue = nfq.GetPackets()
+
+	// Setup backend database + cache
+	ruleCache, err = rules.NewRuleCache(log, "./rules.db")
+	if err != nil {
+		log.Fatalf("Failed to initialize ruleCache: %v", err)
+	}
+
+	if err = ruleCache.Prime(); err != nil {
+		log.Fatalf("Failed to prime ruleCache: %v", err)
+	}
+
+	// Setup DBUS handler + client
+	ipc, err = daemonipc.NewDaemonIPCService(log, ruleCache)
+	if err != nil {
+		log.Fatalf("Failed to initialize DBUS: %v", err)
+	}
+
+	// Setup netfilter and default rules
+	ipt, err = iptables.NewNetfilter(log)
+	if err != nil {
+		log.Fatalf("Failed to initialize Netfilter: %v", err)
+	}
+
+	err = ipt.SetupRules()
+	if err != nil {
+		log.Fatalf("Failed to load initial netfilter rules: %v", err)
+	}
+
+	// Setup snitch engine
+	engine, err = snitch.NewEngine(log)
+	if err != nil {
+		log.Fatalf("Failed to initialize engine: %v", err)
+	}
+}
+
 func main() {
-	var (
-		dbusDaemon *ipc.DBusDaemon
-		err        error
-	)
-
-	nfq, err := netfilter.NewNFQueue(0, 100, netfilter.NF_DEFAULT_PACKET_SIZE)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer nfq.Close()
-
-	packets := nfq.GetPackets()
-
-	rulecache := rules.NewRuleCache("./rules.db")
-	err = rulecache.Prime()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to prime cache: %v\n", err)
-		os.Exit(1)
-	}
-
-	dbusDaemon = &ipc.DBusDaemon{}
-	if err = dbusDaemon.Connect(rulecache); err != nil {
-		fmt.Fprintf(os.Stderr, "dbusDaemon:", err)
-		os.Exit(1)
-	}
-
-	filter := kernel.NewNetfilter("/usr/bin/iptables", "/usr/bin/ip6tables")
-	filter.SetupRules()
-
-	parser := snitch.NewSnitch()
-
+	// Setup channels for signal handlers
 	exitSignal := make(chan os.Signal, 1)
 	hupSignal := make(chan os.Signal, 1)
 	stopHupHandler := make(chan bool, 1)
 	signalsCompleted := make(chan bool, 1)
 
+	// Disable engine and cleanup rules on exit
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-exitSignal
-		fmt.Printf("Received signal, exiting...\n")
-		parser.Disable()
-		filter.CleanupRules()
+		log.Infof("Received signal, exiting...")
+		engine.Disable()
+		ipt.CleanupRules()
 		signalsCompleted <- true
 	}()
 
+	// Reload resolvers on HUP signal
 	signal.Notify(hupSignal, syscall.SIGHUP)
 	go func() {
 		runHandler := true
@@ -71,51 +115,58 @@ func main() {
 				}
 			case <-hupSignal:
 				{
-					fmt.Printf("Reloading ...\n")
-					filter.RemoveResolvers()
-					filter.AllowResolvers()
+					log.Infof("Reloading ...")
+					ipt.RemoveResolvers()
+					ipt.AllowResolvers()
 				}
 			}
 		}
 	}()
 
-	for true {
+	// Start packet handling loop
+	log.Infof("Snitching packets")
+	for {
 		select {
-		case <-signalsCompleted:
+		case <-signalsCompleted: // OnExit signal handler completed
 			{
 				os.Exit(0)
 			}
-		case p := <-packets:
-			request, err := parser.ProcessPacket(p.Packet)
+		case p := <-packetQueue: // Received new packet
+			// Extract details from packet. If we fail to process this packet
+			// in any way, drop it and continue processing.
+			request, err := engine.ProcessPacket(p.Packet)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to get packet details: %v\n", err)
+				log.Warningf("Dropping packet: %v", err)
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}
 
-			fmt.Printf("Request: %v\n", request)
+			log.Debugf("Received %s", request)
 
-			verdict, err := rulecache.GetVerdict(request)
+			// Check if we have an existing verdict in the rulecache
+			verdict, err := ruleCache.GetVerdict(request)
 			if err != nil {
+				log.Warningf("Error from ruleCache, dropping: %v", err)
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}
 
 			if verdict != netfilter.NF_UNDEF {
-				fmt.Printf("Setting verdict via rule\n")
+				log.Debugf("Setting verdict via rule")
 				p.SetVerdict(verdict)
 				continue
 			}
 
-			action, err := dbusDaemon.GetVerdict(request)
+			// Request a verdict via dbus
+			action, err := ipc.GetVerdict(request)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
+				log.Warningf("Error from ipc, dropping: %v", err)
 				p.SetVerdict(netfilter.NF_DROP)
 				continue
 			}
 
-			fmt.Printf("Setting verdict via dbus\n")
-			fmt.Printf("Action: %s (%d)\n", rules.DialogVerdictToString(action), action)
+			// Check action to see what we need to do with the packet
+			log.Debugf("Setting verdict via ipc")
 			switch action {
 			case snitch.DROP_APP_ALWAYS_USER,
 				snitch.DROP_APP_ALWAYS_SYSTEM,
@@ -123,8 +174,8 @@ func main() {
 				snitch.DROP_CONN_ALWAYS_SYSTEM:
 				{
 					verdict = netfilter.NF_DROP
-					if err = rulecache.AddRule(request, action); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to add rule: %v\n", err)
+					if err = ruleCache.AddRule(request, action); err != nil {
+						log.Warningf("Error from ruleCache: %v", err)
 					}
 				}
 			case snitch.ACCEPT_APP_ALWAYS_USER,
@@ -133,8 +184,8 @@ func main() {
 				snitch.ACCEPT_CONN_ALWAYS_SYSTEM:
 				{
 					verdict = netfilter.NF_ACCEPT
-					if err = rulecache.AddRule(request, action); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to add rule: %v\n", err)
+					if err = ruleCache.AddRule(request, action); err != nil {
+						log.Warningf("Error from ruleCache: %v\n", err)
 					}
 				}
 			case snitch.DROP_CONN_ONCE_USER,
@@ -161,15 +212,11 @@ func main() {
 				}
 			default:
 				{
-					fmt.Fprintf(os.Stderr, "Unknown action!: %d\n", action)
+					log.Warningf("Unknown action found in ipc response: %d\n", action)
 				}
 			}
 
-			fmt.Printf("Returning verdict\n")
 			p.SetVerdict(verdict)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to set rule: %v", err)
-			}
 		}
 	}
 }

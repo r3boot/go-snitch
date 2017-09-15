@@ -7,7 +7,8 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/r3boot/go-snitch/lib/ui"
+	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
 const RULESET_TABLE_SQL string = `CREATE TABLE IF NOT EXISTS ruleset (
@@ -79,11 +80,13 @@ type RuleDetail struct {
 	Proto     int
 	User      string
 	Action    string
-	RuleType  ui.RuleType
+	RuleType  common.RuleType
 	Verdict   int
 	Timestamp time.Time
 	Duration  time.Duration
 }
+
+type Ruleset []RuleItem
 
 type RuleDB struct {
 	conn  *sql.DB
@@ -93,11 +96,13 @@ type RuleDB struct {
 
 type RuleCache struct {
 	backend *RuleDB
-	ruleset []RuleItem
+	ruleset Ruleset
 	mutex   sync.RWMutex
 }
 
 type SessionCache struct {
-	ruleset []RuleItem
+	ruleset Ruleset
 	mutex   sync.RWMutex
 }
+
+var log *logger.Logger

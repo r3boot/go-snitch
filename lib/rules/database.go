@@ -9,20 +9,25 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
+	"github.com/r3boot/go-snitch/lib/common"
+	"github.com/r3boot/go-snitch/lib/logger"
 	"github.com/r3boot/go-snitch/lib/snitch"
 )
 
-func NewRuleDB(dbpath string) *RuleDB {
+func NewRuleDB(l *logger.Logger, dbpath string) (*RuleDB, error) {
+	if l != nil {
+		log = l
+	}
+
 	db := &RuleDB{
 		path: dbpath,
 	}
 
 	if err := db.Connect(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("NewRuleDB: failed to connect to database: %v", err)
 	}
 
-	return db
+	return db, nil
 }
 
 func (db *RuleDB) Connect() error {
@@ -52,7 +57,7 @@ func (db *RuleDB) Connect() error {
 	return nil
 }
 
-func (db *RuleDB) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
+func (db *RuleDB) GetVerdict(r common.ConnRequest) (netfilter.Verdict, error) {
 	verdict := netfilter.NF_UNDEF
 
 	db.mutex.RLock()
@@ -90,7 +95,7 @@ func (db *RuleDB) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	// Check if we have a rule which matches on ip+port+proto
 	if !isAppRule {
 		for _, rule := range foundRules {
-			if r.Dstip == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
+			if r.Destination == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
 				matchingRule = rule
 				break
 			}
@@ -118,7 +123,7 @@ func (db *RuleDB) GetVerdict(r snitch.ConnRequest) (netfilter.Verdict, error) {
 	return netfilter.NF_UNDEF, nil
 }
 
-func (db *RuleDB) AddAppRule(r snitch.ConnRequest, action int) error {
+func (db *RuleDB) AddAppRule(r common.ConnRequest, action int) error {
 	db.mutex.Lock()
 
 	verdict := netfilter.NF_UNDEF
@@ -148,7 +153,7 @@ func (db *RuleDB) AddAppRule(r snitch.ConnRequest, action int) error {
 	return nil
 }
 
-func (db *RuleDB) AddConnRule(r snitch.ConnRequest, action int) error {
+func (db *RuleDB) AddConnRule(r common.ConnRequest, action int) error {
 	db.mutex.Lock()
 
 	verdict := netfilter.NF_UNDEF
@@ -168,7 +173,7 @@ func (db *RuleDB) AddConnRule(r snitch.ConnRequest, action int) error {
 		db.mutex.Unlock()
 		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
 	}
-	_, err = statement.Exec(r.Command, verdict, r.Dstip, r.Port, r.Proto, r.User, time.Now(), r.Duration)
+	_, err = statement.Exec(r.Command, verdict, r.Destination, r.Port, r.Proto, r.User, time.Now(), r.Duration)
 	if err != nil {
 		db.mutex.Unlock()
 		return fmt.Errorf("rules: Failed to execute statement: %v", err)
@@ -178,7 +183,7 @@ func (db *RuleDB) AddConnRule(r snitch.ConnRequest, action int) error {
 	return nil
 }
 
-func (db *RuleDB) AddRule(r snitch.ConnRequest, action int) error {
+func (db *RuleDB) AddRule(r common.ConnRequest, action int) error {
 	r.Duration = time.Duration(0)
 
 	switch action {
@@ -283,7 +288,7 @@ func (db *RuleDB) GetAllRules() ([]RuleItem, error) {
 		err = response.Scan(&rule.Id, &rule.Cmd, &rule.Verdict, &dstip,
 			&port, &proto, &rule.User, &rule.Timestamp, &rule.Duration)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to parse entry: %v\n", err)
+			log.Infof("db.GetAllRules: Failed to parse entry: %v\n", err)
 			continue
 		}
 		rule.Dstip = dstip.String

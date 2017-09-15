@@ -1,22 +1,21 @@
 package rules
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/r3boot/go-snitch/lib/common"
 	"github.com/r3boot/go-snitch/lib/snitch"
 )
 
 func NewSessionCache() *SessionCache {
-
 	cache := &SessionCache{
-		ruleset: []RuleItem{},
+		ruleset: Ruleset{},
 	}
 
 	return cache
 }
 
-func (cache *SessionCache) GetVerdict(r snitch.ConnRequest) (int, error) {
+func (cache *SessionCache) GetVerdict(r common.ConnRequest) (int, error) {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 
@@ -44,7 +43,7 @@ func (cache *SessionCache) GetVerdict(r snitch.ConnRequest) (int, error) {
 	// Check if we have a rule which matches on ip+port+proto
 	if !isAppRule {
 		for _, rule := range foundRules {
-			if r.Dstip == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
+			if r.Destination == rule.Dstip && r.Port == rule.Port && r.Proto == rule.Proto {
 				matchingRule = rule
 				break
 			}
@@ -121,7 +120,7 @@ func (cache *SessionCache) DeleteRule(id int) {
 	cache.ruleset = ruleset
 }
 
-func (cache *SessionCache) DeleteAppUserRules(r snitch.ConnRequest) {
+func (cache *SessionCache) DeleteAppUserRules(r common.ConnRequest) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
@@ -142,14 +141,14 @@ func (cache *SessionCache) DeleteAppUserRules(r snitch.ConnRequest) {
 	cache.ruleset = ruleset
 }
 
-func (cache *SessionCache) DeleteConnUserRules(r snitch.ConnRequest) {
+func (cache *SessionCache) DeleteConnUserRules(r common.ConnRequest) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
 	ruleset := []RuleItem{}
 
 	for _, rule := range cache.ruleset {
-		if rule.Cmd == r.Command && rule.Dstip == r.Dstip && rule.Port == r.Port && rule.Proto == r.Proto {
+		if rule.Cmd == r.Command && rule.Dstip == r.Destination && rule.Port == r.Port && rule.Proto == r.Proto {
 			continue
 		}
 		ruleset = append(ruleset, rule)
@@ -173,7 +172,7 @@ func (cache *SessionCache) NextFreeId() int {
 	return lastId + 1
 }
 
-func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
+func (cache *SessionCache) AddRule(r common.ConnRequest, verdict int) error {
 	user := r.User
 
 	// Delete existing rules if rule is built as a system-wide rule
@@ -219,7 +218,7 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 				Id:        cache.NextFreeId(),
 				Cmd:       r.Command,
 				Verdict:   verdict,
-				Dstip:     r.Dstip,
+				Dstip:     r.Destination,
 				Port:      r.Port,
 				Proto:     r.Proto,
 				User:      user,
@@ -229,16 +228,12 @@ func (cache *SessionCache) AddRule(r snitch.ConnRequest, verdict int) error {
 		}
 	}
 
-	fmt.Printf("cache: %v\n", cache.ruleset)
-
 	return nil
 }
 
-func (cache *SessionCache) GetAllRules() ([]RuleItem, error) {
+func (cache *SessionCache) GetAllRules() (Ruleset, error) {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
-
-	fmt.Printf("cache: %v\n", cache.ruleset)
 
 	return cache.ruleset, nil
 }
@@ -247,9 +242,7 @@ func (cache *SessionCache) UpdateRule(newRule RuleDetail) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
-	newRuleset := []RuleItem{}
-
-	fmt.Printf("newRule: %v\n", newRule)
+	newRuleset := Ruleset{}
 
 	for _, rule := range cache.ruleset {
 		if rule.Id == newRule.Id {
@@ -269,5 +262,4 @@ func (cache *SessionCache) UpdateRule(newRule RuleDetail) {
 	}
 
 	cache.ruleset = newRuleset
-	fmt.Printf("cache: %v\n", cache.ruleset)
 }

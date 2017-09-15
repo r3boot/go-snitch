@@ -4,15 +4,24 @@ import (
 	"fmt"
 )
 
-func (r RuleItem) Dump() {
-	fmt.Printf("== RuleItem:\n")
-	fmt.Printf("Id: %d\n", r.Id)
-	fmt.Printf("Cmd: %s\n", r.Cmd)
-	fmt.Printf("Verdict: %d\n", r.Verdict)
-	fmt.Printf("Dstip: %s\n", r.Dstip)
-	fmt.Printf("Port: %s\n", r.Port)
-	fmt.Printf("Proto: %d\n", r.Proto)
-	fmt.Printf("User: %s\n", r.User)
-	fmt.Printf("Timestamp: %v\n", r.Timestamp)
-	fmt.Printf("Duration: %v\n", r.Duration)
+func (rs Ruleset) String() string {
+	response := fmt.Sprintf("== Ruleset:\n")
+	for _, rule := range rs {
+		response += rule.String()
+	}
+	return response
+}
+
+func (r RuleItem) String() string {
+	response := fmt.Sprintf("== RuleItem:\n")
+	response += fmt.Sprintf("Id: %d\n", r.Id)
+	response += fmt.Sprintf("Cmd: %s\n", r.Cmd)
+	response += fmt.Sprintf("Verdict: %d\n", r.Verdict)
+	response += fmt.Sprintf("Dstip: %s\n", r.Dstip)
+	response += fmt.Sprintf("Port: %s\n", r.Port)
+	response += fmt.Sprintf("Proto: %d\n", r.Proto)
+	response += fmt.Sprintf("User: %s\n", r.User)
+	response += fmt.Sprintf("Timestamp: %v\n", r.Timestamp)
+	response += fmt.Sprintf("Duration: %v\n", r.Duration)
+	return response
 }

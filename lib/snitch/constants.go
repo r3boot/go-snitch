@@ -1,9 +1,8 @@
 package snitch
 
 import (
-	"time"
-
-	"github.com/r3boot/go-snitch/lib/kernel"
+	"github.com/r3boot/go-snitch/lib/ftrace"
+	"github.com/r3boot/go-snitch/lib/logger"
 )
 
 const (
@@ -34,31 +33,13 @@ const (
 	ACCEPT_APP_ALWAYS_SYSTEM   int = 31
 
 	UNKNOWN int = 99
-
-	PROTO_UNKNOWN int = 255
-
-	PROTO_ICMP  int = 1
-	PROTO_TCP   int = 6
-	PROTO_UDP   int = 17
-	PROTO_ICMP6 int = 58
-
-	PROTO_IPV4 int = 4
-	PROTO_IPV6 int = 41
 )
 
-type Snitch struct {
+type Engine struct {
 	useFtrace bool
-	procMon   *kernel.ProcMon
+	ftrace    *ftrace.Ftrace
 }
 
-type ConnRequest struct {
-	Dstip     string
-	Port      string
-	Proto     int
-	Pid       string
-	Command   string
-	Cmdline   string
-	User      string
-	Timestamp time.Time
-	Duration  time.Duration
-}
+var (
+	log *logger.Logger
+)

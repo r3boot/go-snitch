@@ -18,13 +18,15 @@ ${DAEMON}:
 
 ${APPLET}:
 	[ -d "${BUILD_DIR}" ] || mkdir -p "${BUILD_DIR}"
-	cd ${COMMANDS_DIR}/${APPLET} ; qtdeploy build desktop
+	QT_DIR=${QT_DIR} QT_QMAKE_DIR=${QT_QMAKE_DIR} cd ${COMMANDS_DIR}/${APPLET};\
+		qtdeploy build desktop
 	install -m 0755 ${COMMANDS_DIR}/${APPLET}/deploy/linux/${APPLET} \
 		${BUILD_DIR}/${APPLET}
 
 ${MANAGE}:
 	[ -d "${BUILD_DIR}" ] || mkdir -p "${BUILD_DIR}"
-	cd ${COMMANDS_DIR}/${MANAGE} ; qtdeploy build desktop
+	export QT_DIR=${QT_DIR} ; export QT_QMAKE_DIR=${QT_QMAKE_DIR} ; cd ${COMMANDS_DIR}/${MANAGE};\
+		qtdeploy build desktop
 	install -m 0755 ${COMMANDS_DIR}/${MANAGE}/deploy/linux/${MANAGE} \
     	${BUILD_DIR}/${MANAGE}
 
