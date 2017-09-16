@@ -86,6 +86,7 @@ type ConnRequest struct {
 	Cmdline     string
 	User        string
 	Timestamp   time.Time
+	Duration    time.Duration
 }
 
 // Created for each response by the request window. Passed back via DBUS

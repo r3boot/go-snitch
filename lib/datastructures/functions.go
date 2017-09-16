@@ -50,7 +50,7 @@ func SnitchVerdictToVerdict(v ResponseType) Verdict {
 }
 
 func (r ConnRequest) String() string {
-	response := fmt.Sprintf("ConnRequest:\n")
+	response := fmt.Sprintf("== ConnRequest:\n")
 	response += fmt.Sprintf("Destination: %s\n", r.Destination)
 	response += fmt.Sprintf("Port: %s\n", r.Port)
 	response += fmt.Sprintf("Proto: %s\n", ProtoToStringMap[r.Proto])
@@ -58,8 +58,7 @@ func (r ConnRequest) String() string {
 	response += fmt.Sprintf("Cmdline: %s\n", r.Cmdline)
 	response += fmt.Sprintf("Pid: %s\n", r.Pid)
 	response += fmt.Sprintf("User: %s\n", r.User)
-	response += fmt.Sprintf("Timestamp: %s\n", r.Timestamp.Format(time.RFC3339))
-	response += fmt.Sprintf("Duration: %s", r.Duration)
+	response += fmt.Sprintf("Timestamp: %s", r.Timestamp.Format(time.RFC3339))
 	return response
 }
 

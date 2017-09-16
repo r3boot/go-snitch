@@ -1,4 +1,3 @@
-- Make sure daemon works w/o the dialog connected to dbus
 - Fix Failed to get packet details: readlink /proc/-/exe: no such file or directory
 - Fix ipv6 (Failed to get packet details: readlink /proc//exe: no such file or directory, no pid found??)
 - Close dialog window after tcp-timeout seconds (120)
@@ -21,3 +20,7 @@
 - Add translations
 - Fix ntp request handling
 - Add global enable/disable possibility
+- Add possibility to do whois lookups from handler window
+- Add possibility to whitelist port
+- Add possibility to create rules based on *.some.domain
+- Add possibility to create rules based on subnet of destination ip
