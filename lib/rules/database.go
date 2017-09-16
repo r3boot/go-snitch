@@ -122,81 +122,53 @@ func (db *RuleDB) GetVerdict(r datastructures.ConnRequest) (netfilter.Verdict, e
 	return netfilter.NF_UNDEF, nil
 }
 
-func (db *RuleDB) AddAppRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
+func (db *RuleDB) AddAppRule(r datastructures.ConnRequest, response datastructures.Response) error {
 	db.mutex.Lock()
-
-	verdict := netfilter.NF_UNDEF
-	switch action {
-	case datastructures.DROP_APP_ALWAYS_USER, datastructures.DROP_APP_ALWAYS_SYSTEM:
-		{
-			verdict = netfilter.NF_DROP
-		}
-	case datastructures.ACCEPT_APP_ALWAYS_USER, datastructures.ACCEPT_APP_ALWAYS_SYSTEM:
-		{
-			verdict = netfilter.NF_ACCEPT
-		}
-	}
+	defer db.mutex.Unlock()
 
 	statement, err := db.conn.Prepare(ADD_APP_DURATION_RULE_SQL)
 	if err != nil {
-		db.mutex.Unlock()
 		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
 	}
-	_, err = statement.Exec(r.Command, verdict, r.User, time.Now(), r.Duration)
+
+	_, err = statement.Exec(r.Command, response.Verdict, r.User, r.Timestamp, response.Duration)
 	if err != nil {
-		db.mutex.Unlock()
 		return fmt.Errorf("rules: Failed to execute statement: %v", err)
 	}
-	db.mutex.Unlock()
 
 	return nil
 }
 
-func (db *RuleDB) AddConnRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
+func (db *RuleDB) AddConnRule(r datastructures.ConnRequest, response datastructures.Response) error {
 	db.mutex.Lock()
-
-	verdict := netfilter.NF_UNDEF
-	switch action {
-	case datastructures.DROP_CONN_ALWAYS_USER, datastructures.DROP_CONN_ALWAYS_SYSTEM:
-		{
-			verdict = netfilter.NF_DROP
-		}
-	case datastructures.ACCEPT_CONN_ALWAYS_USER, datastructures.ACCEPT_CONN_ALWAYS_SYSTEM:
-		{
-			verdict = netfilter.NF_ACCEPT
-		}
-	}
+	defer db.mutex.Unlock()
 
 	statement, err := db.conn.Prepare(ADD_CONN_DURATION_RULE_SQL)
 	if err != nil {
-		db.mutex.Unlock()
 		return fmt.Errorf("rules: Failed to prepare statement: %v", err)
 	}
-	_, err = statement.Exec(r.Command, verdict, r.Destination, r.Port, r.Proto, r.User, time.Now(), r.Duration)
+
+	_, err = statement.Exec(r.Command, response.Verdict, r.Destination, r.Port, r.Proto, r.User, r.Timestamp, response.Duration)
 	if err != nil {
-		db.mutex.Unlock()
 		return fmt.Errorf("rules: Failed to execute statement: %v", err)
 	}
-	db.mutex.Unlock()
 
 	return nil
 }
 
-func (db *RuleDB) AddRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
-	r.Duration = time.Duration(0)
-
-	switch action {
-	case datastructures.DROP_APP_ALWAYS_USER, datastructures.DROP_APP_ALWAYS_SYSTEM, datastructures.ACCEPT_APP_ALWAYS_USER, datastructures.ACCEPT_APP_ALWAYS_SYSTEM:
+func (db *RuleDB) AddRule(r datastructures.ConnRequest, response datastructures.Response) error {
+	switch response.Action {
+	case datastructures.ACTION_WHITELIST, datastructures.ACTION_BLOCK:
 		{
 			if err := db.DeleteConnRulesFor(r.Command); err != nil {
 				return fmt.Errorf("Failed to delete conn rules: %v\n", err)
 			}
-			return db.AddAppRule(r, action)
+			return db.AddAppRule(r, response)
 		}
-	case datastructures.DROP_CONN_ALWAYS_USER, datastructures.DROP_CONN_ALWAYS_SYSTEM, datastructures.ACCEPT_CONN_ALWAYS_USER, datastructures.ACCEPT_CONN_ALWAYS_SYSTEM:
+	default:
 		{
 			// Is conn rule
-			return db.AddConnRule(r, action)
+			return db.AddConnRule(r, response)
 		}
 	}
 
@@ -237,7 +209,7 @@ func (db *RuleDB) DeleteRule(id int) error {
 	return nil
 }
 
-func (db *RuleDB) UpdateRule(newRule datastructures.RuleDetail) error {
+func (db *RuleDB) UpdateRule(rule datastructures.RuleDetail) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
@@ -246,19 +218,7 @@ func (db *RuleDB) UpdateRule(newRule datastructures.RuleDetail) error {
 		return fmt.Errorf("rules: Failed to prepare statement: %v\n", err)
 	}
 
-	verdict := netfilter.NF_UNDEF
-	switch newRule.Verdict {
-	case datastructures.VERDICT_ACCEPT:
-		{
-			verdict = netfilter.NF_ACCEPT
-		}
-	case datastructures.VERDICT_REJECT:
-		{
-			verdict = netfilter.NF_DROP
-		}
-	}
-
-	_, err = statement.Exec(newRule.Destination, newRule.Port, newRule.Proto, newRule.User, verdict, newRule.Duration, newRule.Id)
+	_, err = statement.Exec(rule.Destination, rule.Port, rule.Proto, rule.User, rule.Verdict, rule.Duration, rule.Id)
 	if err != nil {
 		return fmt.Errorf("rules: Failed to execute statement: %v\n", err)
 	}

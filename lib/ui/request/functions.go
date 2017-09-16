@@ -30,6 +30,8 @@ func (rw *RequestWindow) Hide() {
 }
 
 func (rw *RequestWindow) setValues(r datastructures.ConnRequest) {
+	rw.curConnRequest = r
+
 	header := fmt.Sprintf("<font size='3'><b>%s wants to connect to the network</b></font>",
 		path.Base(strings.Split(r.Command, " ")[0]))
 
@@ -65,15 +67,16 @@ func (rw *RequestWindow) setValues(r datastructures.ConnRequest) {
 }
 
 func (rw *RequestWindow) getValues() datastructures.Response {
-	response := datastructures.Response{
-		Scope:    rw.getScope(),
-		User:     rw.getUser(),
-		Duration: rw.getDuration(),
-	}
+	response := datastructures.Response{}
+	response.User = rw.getUser()
+	response.Duration = datastructures.DurationToValueMap[rw.getDuration()]
+	response.Scope = rw.getScope()
+
 	return response
 }
 
 func (rw *RequestWindow) HandleRequest(r datastructures.ConnRequest) datastructures.Response {
+	log.Debugf("Got new request")
 	rw.setValues(r)
 	rw.Show()
 	return <-rw.responseChan

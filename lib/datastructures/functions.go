@@ -1,52 +1,18 @@
 package datastructures
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
-
-	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 )
 
-func NFVerdictToVerdict(v netfilter.Verdict) Verdict {
-	switch v {
-	case netfilter.NF_ACCEPT:
-		return VERDICT_ACCEPT
-	case netfilter.NF_DROP:
-		return VERDICT_REJECT
-	}
-	return VERDICT_REJECT
-}
-
-func SnitchVerdictToVerdict(v ResponseType) Verdict {
-	switch v {
-	case DROP_CONN_ONCE_USER,
-		DROP_CONN_SESSION_USER,
-		DROP_CONN_ALWAYS_USER,
-		DROP_APP_ONCE_USER,
-		DROP_APP_SESSION_USER,
-		DROP_APP_ALWAYS_USER,
-		DROP_CONN_ONCE_SYSTEM,
-		DROP_CONN_SESSION_SYSTEM,
-		DROP_CONN_ALWAYS_SYSTEM,
-		DROP_APP_ONCE_SYSTEM,
-		DROP_APP_SESSION_SYSTEM,
-		DROP_APP_ALWAYS_SYSTEM:
-		return VERDICT_REJECT
-	case ACCEPT_CONN_ONCE_USER,
-		ACCEPT_CONN_SESSION_USER,
-		ACCEPT_CONN_ALWAYS_USER,
-		ACCEPT_APP_ONCE_USER,
-		ACCEPT_APP_SESSION_USER,
-		ACCEPT_APP_ALWAYS_USER,
-		ACCEPT_CONN_ONCE_SYSTEM,
-		ACCEPT_CONN_SESSION_SYSTEM,
-		ACCEPT_CONN_ALWAYS_SYSTEM,
-		ACCEPT_APP_ONCE_SYSTEM,
-		ACCEPT_APP_SESSION_SYSTEM,
-		ACCEPT_APP_ALWAYS_SYSTEM:
-		return VERDICT_ACCEPT
-	}
-	return VERDICT_REJECT
+func init() {
+	DurationToValueMap[DURATION_5M], _ = time.ParseDuration("5m")
+	DurationToValueMap[DURATION_1H], _ = time.ParseDuration("1h")
+	DurationToValueMap[DURATION_8H], _ = time.ParseDuration("8h")
+	DurationToValueMap[DURATION_1D], _ = time.ParseDuration("24h")
+	DurationToValueMap[DURATION_FOREVER], _ = time.ParseDuration("0s")
 }
 
 func (r ConnRequest) String() string {
@@ -124,16 +90,6 @@ func (p Proto) String() string {
 	return "UNKNOWN"
 }
 
-func (v Verdict) String() string {
-	switch v {
-	case VERDICT_ACCEPT:
-		return "accept"
-	case VERDICT_REJECT:
-		return "reject"
-	}
-	return "UNKNOWN"
-}
-
 func (r Response) String() string {
 	response := "== Response:\n"
 	response += fmt.Sprintf("Scope: %s\n", r.Scope.String())
@@ -164,4 +120,13 @@ func (r RuleItem) String() string {
 	response += fmt.Sprintf("Duration: %s\n", r.Duration.String())
 	response += fmt.Sprintf("Verdict: %s", r.Verdict.String())
 	return response
+}
+
+func (r Response) ToJSON() string {
+	data, err := json.Marshal(r)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Response.ToJSON: failed to marshal to json: %v", err)
+		return ""
+	}
+	return string(data)
 }

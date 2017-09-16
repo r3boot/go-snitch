@@ -7,6 +7,7 @@ import (
 
 	"github.com/godbus/dbus"
 
+	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 	"github.com/r3boot/go-snitch/lib/datastructures"
 )
 
@@ -42,142 +43,51 @@ func (bus HandlerBus) UpdateRule(data string) (string, *dbus.Error) {
 }
 
 func (bus HandlerBus) DeleteRule(id int) (string, *dbus.Error) {
-
 	sessionCache.DeleteRule(id)
 
 	return "ok", nil
 }
 
-func (bus HandlerBus) GetVerdict(data string) (datastructures.ResponseType, *dbus.Error) {
-	newRequest := datastructures.ConnRequest{}
+func (bus HandlerBus) GetVerdict(data string) (string, *dbus.Error) {
+	request := datastructures.ConnRequest{}
+	response := datastructures.Response{}
 
-	if err := json.Unmarshal([]byte(data), &newRequest); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to unmarshal json: %v", err)
-		return datastructures.RESPONSE_UNKNOWN, nil
+	if err := json.Unmarshal([]byte(data), &request); err != nil {
+		msg := fmt.Sprintf("HandlerBus.GetVerdict: Failed to unmarshal json: %v", err)
+		log.Warningf(msg)
+		response.Verdict = netfilter.NF_UNDEF
+		return response.ToJSON(), dbus.NewError(msg, nil)
 	}
-
-	fmt.Printf("Got verdict request: %v\n", newRequest)
 
 	// Check if we have a session rule
-	sessionVerdict, err := sessionCache.GetVerdict(newRequest)
+	sessionVerdict, err := sessionCache.GetVerdict(request)
 	if err != nil {
-		log.Warningf("HandlerBus.GetVerdict: %v", err)
+		msg := fmt.Sprintf("HandlerBus.GetVerdict: %v", err)
+		log.Warningf(msg)
 	}
 
-	if sessionVerdict != datastructures.RESPONSE_UNKNOWN {
-		log.Debugf("Verdict by session rule\n")
-		return sessionVerdict, nil
+	if sessionVerdict != netfilter.NF_UNDEF {
+		log.Debugf("HandlerBus.GetVerdict: verdict by session rule")
+		response.Verdict = sessionVerdict
+		return response.ToJSON(), nil
 	}
 
-	response := rw.HandleRequest(newRequest)
+	response = rw.HandleRequest(request)
 
-	log.Debugf(response.String())
-
-	result := datastructures.DROP_CONN_ONCE_USER
 	switch response.Scope {
-	case datastructures.SCOPE_ONCE:
+	case datastructures.SCOPE_ONCE, datastructures.SCOPE_FOREVER:
 		{
-			if response.User == datastructures.USER_SYSTEM {
-				switch response.Action {
-				case datastructures.ACTION_WHITELIST:
-					result = datastructures.ACCEPT_APP_ONCE_SYSTEM
-				case datastructures.ACTION_BLOCK:
-					result = datastructures.DROP_APP_ONCE_SYSTEM
-				case datastructures.ACTION_ALLOW:
-					result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
-				case datastructures.ACTION_DENY:
-					result = datastructures.DROP_CONN_ONCE_SYSTEM
-				}
-			} else {
-				switch response.Action {
-				case datastructures.ACTION_WHITELIST:
-					result = datastructures.ACCEPT_APP_ONCE_USER
-				case datastructures.ACTION_BLOCK:
-					result = datastructures.DROP_APP_ONCE_USER
-				case datastructures.ACTION_ALLOW:
-					result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
-				case datastructures.ACTION_DENY:
-					result = datastructures.DROP_CONN_ONCE_SYSTEM
-				}
-			}
+			log.Debugf("HandlerBus.GetVerdict: sending response: %s", response)
+			return response.ToJSON(), nil
 		}
 	case datastructures.SCOPE_SESSION:
 		{
-			if response.User == datastructures.USER_SYSTEM {
-				switch response.Action {
-				case datastructures.ACTION_WHITELIST:
-					{
-						result = datastructures.ACCEPT_APP_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, datastructures.ACCEPT_APP_ONCE_SYSTEM)
-					}
-				case datastructures.ACTION_BLOCK:
-					{
-						result = datastructures.DROP_APP_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, datastructures.DROP_APP_ONCE_SYSTEM)
-					}
-				case datastructures.ACTION_ALLOW:
-					{
-						result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, datastructures.ACCEPT_CONN_ONCE_SYSTEM)
-					}
-				case datastructures.ACTION_DENY:
-					{
-						result = datastructures.DROP_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, datastructures.DROP_CONN_ONCE_SYSTEM)
-					}
-				}
-			} else {
-				switch response.Action {
-				case datastructures.ACTION_WHITELIST:
-					{
-						result = datastructures.ACCEPT_APP_ONCE_USER
-						sessionCache.AddRule(newRequest, datastructures.ACCEPT_APP_ONCE_USER)
-					}
-				case datastructures.ACTION_BLOCK:
-					{
-						result = datastructures.DROP_APP_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, datastructures.DROP_APP_ONCE_USER)
-					}
-				case datastructures.ACTION_ALLOW:
-					{
-						result = datastructures.ACCEPT_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, datastructures.ACCEPT_CONN_ONCE_USER)
-					}
-				case datastructures.ACTION_DENY:
-					{
-						result = datastructures.DROP_CONN_ONCE_SYSTEM
-						sessionCache.AddRule(newRequest, datastructures.DROP_CONN_ONCE_USER)
-					}
-				}
-			}
-		}
-	case datastructures.SCOPE_FOREVER:
-		{
-			if response.User == datastructures.USER_SYSTEM {
-				switch response.Action {
-				case datastructures.ACTION_WHITELIST:
-					result = datastructures.ACCEPT_APP_ALWAYS_SYSTEM
-				case datastructures.ACTION_BLOCK:
-					result = datastructures.DROP_APP_ALWAYS_SYSTEM
-				case datastructures.ACTION_ALLOW:
-					result = datastructures.ACCEPT_CONN_ALWAYS_SYSTEM
-				case datastructures.ACTION_DENY:
-					result = datastructures.DROP_CONN_ALWAYS_SYSTEM
-				}
-			} else {
-				switch response.Action {
-				case datastructures.ACTION_WHITELIST:
-					result = datastructures.ACCEPT_APP_ALWAYS_USER
-				case datastructures.ACTION_BLOCK:
-					result = datastructures.DROP_APP_ALWAYS_USER
-				case datastructures.ACTION_ALLOW:
-					result = datastructures.ACCEPT_CONN_ALWAYS_USER
-				case datastructures.ACTION_DENY:
-					result = datastructures.DROP_CONN_ALWAYS_USER
-				}
-			}
+			sessionCache.AddRule(request, response)
+			log.Debugf("HandlerBus.GetVerdict: sending response: %s", response)
+			return response.ToJSON(), nil
 		}
 	}
 
-	return result, nil
+	response.Verdict = netfilter.NF_UNDEF
+	return response.ToJSON(), nil
 }

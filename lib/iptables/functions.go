@@ -10,19 +10,23 @@ import (
 )
 
 func (nf *Iptables) ip4rule(rule string) {
+	log.Debugf("Running: %s %s", nf.iptables, rule)
 	cmd := exec.Command(nf.iptables, strings.Split(rule, " ")...)
 	err := cmd.Start()
 	if err != nil {
 		log.Fatalf("Netfilter.ip4rule: Failed to run iptables: %v", err)
 	}
+	cmd.Wait()
 }
 
 func (nf *Iptables) ip6rule(rule string) {
+	log.Debugf("Running: %s %s", nf.ip6tables, rule)
 	cmd := exec.Command(nf.ip6tables, strings.Split(rule, " ")...)
 	err := cmd.Start()
 	if err != nil {
 		log.Fatalf("Netfilter.ip6rule: Failed to run ip6tables: %v", err)
 	}
+	cmd.Wait()
 }
 
 func (nf *Iptables) SetupRules() error {
@@ -42,15 +46,15 @@ func (nf *Iptables) SetupRules() error {
 }
 
 func (nf *Iptables) CleanupRules() {
+	nf.ip4rule("-D OUTPUT -o lo -j ACCEPT")
+	nf.ip4rule("-D OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
 	nf.ip4rule("-D OUTPUT -m tcp -p tcp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
 	nf.ip4rule("-D OUTPUT -m udp -p udp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
-	nf.ip4rule("-D OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
-	nf.ip4rule("-D OUTPUT -o lo -j ACCEPT")
 
+	nf.ip6rule("-D OUTPUT -o lo -j ACCEPT")
+	nf.ip6rule("-D OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
 	nf.ip6rule("-D OUTPUT -m tcp -p tcp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
 	nf.ip6rule("-D OUTPUT -m udp -p udp -m conntrack --ctstate NEW -j NFQUEUE --queue-num 0")
-	nf.ip6rule("-D OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT")
-	nf.ip6rule("-D OUTPUT -o lo -j ACCEPT")
 }
 
 func (nf *Iptables) RemoveResolvers() {

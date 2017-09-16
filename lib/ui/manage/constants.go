@@ -1,8 +1,6 @@
 package manage
 
 import (
-	"time"
-
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/widgets"
 
@@ -21,28 +19,9 @@ const (
 	COLUMN_ACTION
 )
 
-type RuleItem struct {
-	Id          int
-	Destination string
-	Port        string
-	Proto       datastructures.Proto
-	User        string
-	Timestamp   time.Time
-	Duration    time.Duration
-	Verdict     datastructures.Verdict
-	RuleType    datastructures.RuleType
-}
-
-type RuleMeta struct {
-	IsAppRule bool
-	Rules     []RuleItem
-}
-
-type Ruleset map[string]RuleMeta
-
 type ManageWindow struct {
 	ipc             *manageipc.ManageIPCService
-	ruleset         Ruleset
+	ruleset         datastructures.UiRuleset
 	window          *widgets.QMainWindow
 	fileMenuEnable  *widgets.QAction
 	fileMenuDisable *widgets.QAction

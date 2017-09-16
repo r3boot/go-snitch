@@ -22,9 +22,9 @@ type RequestWindow struct {
 	buttonBlock      *widgets.QPushButton
 	buttonAllow      *widgets.QPushButton
 	buttonDeny       *widgets.QPushButton
+	curConnRequest   datastructures.ConnRequest
 	responseChan     chan datastructures.Response
 }
-
 
 var (
 	log *logger.Logger

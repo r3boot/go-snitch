@@ -82,8 +82,8 @@ func (cache *RuleCache) GetVerdict(r datastructures.ConnRequest) (netfilter.Verd
 	return netfilter.NF_UNDEF, nil
 }
 
-func (cache *RuleCache) AddRule(r datastructures.ConnRequest, action datastructures.ResponseType) error {
-	err := cache.backend.AddRule(r, action)
+func (cache *RuleCache) AddRule(r datastructures.ConnRequest, response datastructures.Response) error {
+	err := cache.backend.AddRule(r, response)
 	if err != nil {
 		return err
 	}

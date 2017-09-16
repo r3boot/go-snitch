@@ -33,12 +33,13 @@ import "C"
 
 import (
 	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"os"
 	"sync"
 	"time"
 	"unsafe"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
 type NFPacket struct {
@@ -202,4 +203,22 @@ func go_callback(queueId C.int, data *C.uchar, len C.int, idx uint32) Verdict {
 		fmt.Fprintf(os.Stderr, "Dropping, unexpectedly due to no recv, idx=%d\n", idx)
 		return NF_DROP
 	}
+}
+
+func (v Verdict) String() string {
+	switch v {
+	case NF_ACCEPT:
+		return "accept"
+	case NF_DROP:
+		return "drop"
+	case NF_STOLEN:
+		return "stolen"
+	case NF_QUEUE:
+		return "queue"
+	case NF_REPEAT:
+		return "repeat"
+	case NF_STOP:
+		return "stop"
+	}
+	return "undef"
 }

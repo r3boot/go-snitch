@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 	"github.com/r3boot/go-snitch/lib/datastructures"
 	"github.com/r3boot/go-snitch/lib/logger"
 )
@@ -18,7 +19,7 @@ func NewSessionCache(l *logger.Logger) *SessionCache {
 	return cache
 }
 
-func (cache *SessionCache) GetVerdict(r datastructures.ConnRequest) (datastructures.ResponseType, error) {
+func (cache *SessionCache) GetVerdict(r datastructures.ConnRequest) (netfilter.Verdict, error) {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 
@@ -40,7 +41,7 @@ func (cache *SessionCache) GetVerdict(r datastructures.ConnRequest) (datastructu
 
 	// Return if no rules found
 	if len(foundRules) == 0 {
-		return datastructures.RESPONSE_UNKNOWN, fmt.Errorf("SessionCache.GetVerdict: No rules defined")
+		return netfilter.NF_UNDEF, fmt.Errorf("SessionCache.GetVerdict: No rules defined")
 	}
 
 	// Check if we have a rule which matches on ip+port+proto
@@ -52,7 +53,7 @@ func (cache *SessionCache) GetVerdict(r datastructures.ConnRequest) (datastructu
 			}
 		}
 		if matchingRule.Command == "" {
-			return datastructures.RESPONSE_UNKNOWN, fmt.Errorf("SessionCache.GetVerdict: Command is empty")
+			return netfilter.NF_UNDEF, fmt.Errorf("SessionCache.GetVerdict: Command is empty")
 		}
 	} else {
 		matchingRule = foundRules[0]
@@ -62,28 +63,18 @@ func (cache *SessionCache) GetVerdict(r datastructures.ConnRequest) (datastructu
 	if matchingRule.Duration != 0 {
 		if time.Since(matchingRule.Timestamp) > matchingRule.Duration {
 			cache.DeleteRuleByRule(matchingRule)
-			return datastructures.RESPONSE_UNKNOWN, fmt.Errorf("SessionCache.GetVerdict: Rule is expired")
+			return netfilter.NF_UNDEF, fmt.Errorf("SessionCache.GetVerdict: Rule is expired")
 		}
 	}
 
 	// Check if the rule matches the requested user
 	if matchingRule.User == USER_ANY {
-		switch matchingRule.Verdict {
-		case datastructures.VERDICT_ACCEPT:
-			return datastructures.ACCEPT_APP_ONCE_SYSTEM, nil
-		case datastructures.VERDICT_REJECT:
-			return datastructures.DROP_APP_ONCE_SYSTEM, nil
-		}
+		return netfilter.NF_ACCEPT, nil
 	} else if matchingRule.User == r.User {
-		switch matchingRule.Verdict {
-		case datastructures.VERDICT_ACCEPT:
-			return datastructures.ACCEPT_APP_ONCE_USER, nil
-		case datastructures.VERDICT_REJECT:
-			return datastructures.DROP_APP_ONCE_USER, nil
-		}
+		return netfilter.NF_ACCEPT, nil
 	}
 
-	return datastructures.RESPONSE_UNKNOWN, fmt.Errorf("SessionCache.GetVerdict: No matching rule found")
+	return netfilter.NF_UNDEF, fmt.Errorf("SessionCache.GetVerdict: No matching rule found")
 }
 
 func (cache *SessionCache) DeleteConnRulesFor(cmd string) {
@@ -187,71 +178,49 @@ func (cache *SessionCache) NextFreeId() int {
 	return lastId + 1
 }
 
-func (cache *SessionCache) AddRule(r datastructures.ConnRequest, response datastructures.ResponseType) error {
+func (cache *SessionCache) AddRule(r datastructures.ConnRequest, response datastructures.Response) error {
 	user := r.User
 
 	// Delete existing rules if rule is built as a system-wide rule
-	switch response {
-	case datastructures.DROP_APP_ONCE_SYSTEM, datastructures.ACCEPT_APP_ONCE_SYSTEM:
-		{
+	if response.User == datastructures.USER_SYSTEM {
+		switch response.Action {
+		case datastructures.ACTION_WHITELIST, datastructures.ACTION_BLOCK:
 			cache.DeleteAppUserRules(r)
-			user = USER_ANY
-		}
-	case datastructures.DROP_CONN_ONCE_SYSTEM, datastructures.ACCEPT_CONN_ONCE_SYSTEM:
-		{
+		case datastructures.ACTION_ALLOW, datastructures.ACTION_DENY:
 			cache.DeleteConnUserRules(r)
-			user = USER_ANY
 		}
+		user = datastructures.SYSTEM_USER
 	}
 
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
 	// Add new rule
-	verdict := datastructures.VERDICT_UNKNOWN
-	switch response {
-	case datastructures.ACCEPT_APP_ONCE_SYSTEM,
-		datastructures.ACCEPT_APP_ONCE_USER,
-		datastructures.DROP_APP_ONCE_SYSTEM,
-		datastructures.DROP_APP_ONCE_USER:
+	switch response.Action {
+	case datastructures.ACTION_WHITELIST, datastructures.ACTION_BLOCK:
 		{
-			if response == datastructures.ACCEPT_APP_ONCE_SYSTEM || response == datastructures.ACCEPT_APP_ONCE_USER {
-				verdict = datastructures.VERDICT_ACCEPT
-			} else {
-				verdict = datastructures.VERDICT_REJECT
-			}
 			cache.DeleteConnRulesFor(r.Command)
 			cache.ruleset = append(cache.ruleset, datastructures.RuleItem{
 				Id:        cache.NextFreeId(),
 				Command:   r.Command,
-				Cmdline:   r.Cmdline,
-				Verdict:   verdict,
+				Verdict:   response.Verdict,
 				User:      user,
 				Timestamp: time.Now(),
-				Duration:  r.Duration,
+				Duration:  response.Duration,
 			})
 		}
-	case datastructures.ACCEPT_CONN_ONCE_SYSTEM,
-		datastructures.ACCEPT_CONN_ONCE_USER,
-		datastructures.DROP_CONN_ONCE_SYSTEM,
-		datastructures.DROP_CONN_ONCE_USER:
+	case datastructures.ACTION_ALLOW, datastructures.ACTION_DENY:
 		{
-			if response == datastructures.ACCEPT_CONN_ONCE_SYSTEM || response == datastructures.ACCEPT_CONN_ONCE_USER {
-				verdict = datastructures.VERDICT_ACCEPT
-			} else {
-				verdict = datastructures.VERDICT_REJECT
-			}
 			cache.ruleset = append(cache.ruleset, datastructures.RuleItem{
 				Id:          cache.NextFreeId(),
 				Command:     r.Command,
-				Cmdline:     r.Cmdline,
-				Verdict:     verdict,
+				Verdict:     response.Verdict,
 				Destination: r.Destination,
 				Port:        r.Port,
 				Proto:       r.Proto,
 				User:        user,
 				Timestamp:   time.Now(),
-				Duration:    r.Duration,
+				Duration:    response.Duration,
 			})
 		}
 	}
@@ -277,7 +246,6 @@ func (cache *SessionCache) UpdateRule(newRule datastructures.RuleDetail) {
 			newRuleset = append(newRuleset, datastructures.RuleItem{
 				Id:          newRule.Id,
 				Command:     newRule.Command,
-				Cmdline:     newRule.Cmdline,
 				Destination: newRule.Destination,
 				Port:        newRule.Port,
 				Proto:       newRule.Proto,

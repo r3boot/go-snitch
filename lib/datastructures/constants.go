@@ -1,15 +1,18 @@
 package datastructures
 
-import "time"
+import (
+	"time"
+
+	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
+)
 
 type Proto int
 type Scope int
 type User int
 type Action int
 type Duration int
+type RuleSource int
 type RuleType int
-type Verdict int
-type ResponseType int
 
 const (
 	PROTO_UNKNOWN Proto = 255
@@ -25,6 +28,8 @@ const (
 	USER_NAME   User = 0
 	USER_SYSTEM User = 1
 
+	SYSTEM_USER string = "*"
+
 	SCOPE_ONCE    Scope = 0
 	SCOPE_SESSION Scope = 1
 	SCOPE_FOREVER Scope = 2
@@ -35,45 +40,16 @@ const (
 	DURATION_1D      Duration = 3
 	DURATION_FOREVER Duration = 4
 
-	TYPE_DB      RuleType = 0
-	TYPE_SESSION RuleType = 1
+	SOURCE_DB      RuleSource = 0
+	SOURCE_SESSION RuleSource = 1
+
+	TYPE_APP  RuleType = 0
+	TYPE_CONN RuleType = 1
 
 	ACTION_WHITELIST Action = 0
 	ACTION_BLOCK     Action = 1
 	ACTION_ALLOW     Action = 2
 	ACTION_DENY      Action = 3
-
-	VERDICT_ACCEPT  Verdict = 0
-	VERDICT_REJECT  Verdict = 1
-	VERDICT_UNKNOWN Verdict = 255
-
-	DROP_CONN_ONCE_USER      ResponseType = 0
-	DROP_CONN_SESSION_USER   ResponseType = 1
-	DROP_CONN_ALWAYS_USER    ResponseType = 2
-	ACCEPT_CONN_ONCE_USER    ResponseType = 3
-	ACCEPT_CONN_SESSION_USER ResponseType = 4
-	ACCEPT_CONN_ALWAYS_USER  ResponseType = 5
-	DROP_APP_ONCE_USER       ResponseType = 6
-	DROP_APP_SESSION_USER    ResponseType = 7
-	DROP_APP_ALWAYS_USER     ResponseType = 8
-	ACCEPT_APP_ONCE_USER     ResponseType = 9
-	ACCEPT_APP_SESSION_USER  ResponseType = 10
-	ACCEPT_APP_ALWAYS_USER   ResponseType = 11
-
-	DROP_CONN_ONCE_SYSTEM      ResponseType = 20
-	DROP_CONN_SESSION_SYSTEM   ResponseType = 21
-	DROP_CONN_ALWAYS_SYSTEM    ResponseType = 22
-	ACCEPT_CONN_ONCE_SYSTEM    ResponseType = 23
-	ACCEPT_CONN_SESSION_SYSTEM ResponseType = 24
-	ACCEPT_CONN_ALWAYS_SYSTEM  ResponseType = 25
-	DROP_APP_ONCE_SYSTEM       ResponseType = 26
-	DROP_APP_SESSION_SYSTEM    ResponseType = 27
-	DROP_APP_ALWAYS_SYSTEM     ResponseType = 28
-	ACCEPT_APP_ONCE_SYSTEM     ResponseType = 29
-	ACCEPT_APP_SESSION_SYSTEM  ResponseType = 30
-	ACCEPT_APP_ALWAYS_SYSTEM   ResponseType = 31
-
-	RESPONSE_UNKNOWN ResponseType = 255
 )
 
 // Created for each new connection. Passed on to requestwindow via DBUS
@@ -86,38 +62,44 @@ type ConnRequest struct {
 	Cmdline     string
 	User        string
 	Timestamp   time.Time
-	Duration    time.Duration
-}
-
-// Created for each response by the request window. Passed back via DBUS
-type Response struct {
-	Scope    Scope
-	User     User
-	Duration Duration
-	Action   Action
 }
 
 // Defines a single item in a ruleset
 type RuleItem struct {
 	Id          int
 	Command     string
-	Cmdline     string
 	Destination string
 	Port        string
 	Proto       Proto
 	User        string
 	Timestamp   time.Time
 	Duration    time.Duration
-	Verdict     Verdict
+	Verdict     netfilter.Verdict
 }
+
+// Created for each response by the request window. Passed back via DBUS
+type Response struct {
+	Scope    Scope
+	User     User
+	Duration time.Duration
+	Action   Action
+	Verdict  netfilter.Verdict
+}
+
+type Ruleset []RuleItem
 
 // Used inside the GUI to display a specific rule
 type RuleDetail struct {
 	RuleItem
-	RuleType RuleType
+	RuleSource RuleSource
 }
 
-type Ruleset []RuleItem
+type UiRulesItem struct {
+	RuleType RuleType
+	Rules    []RuleDetail
+}
+
+type UiRuleset map[string]UiRulesItem
 
 var ProtoToStringMap = map[Proto]string{
 	PROTO_ICMP:    "icmp",
@@ -128,3 +110,5 @@ var ProtoToStringMap = map[Proto]string{
 	PROTO_IPV6:    "ipv6",
 	PROTO_UNKNOWN: "unknown",
 }
+
+var DurationToValueMap = map[Duration]time.Duration{}

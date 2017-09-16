@@ -2,7 +2,6 @@ package manage
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/therecipe/qt/gui"
 
@@ -10,7 +9,9 @@ import (
 )
 
 func (mw *ManageWindow) Show() {
-	mw.LoadRules()
+	if err := mw.LoadRules(); err != nil {
+		log.Warningf("ManageWindow.Show: %v", err)
+	}
 	mw.window.Show()
 }
 
@@ -18,104 +19,110 @@ func (mw *ManageWindow) Hide() {
 	mw.window.Close()
 }
 
-func (mw *ManageWindow) GetRuleMeta(cmd string) RuleMeta {
-	meta, ok := mw.ruleset[cmd]
+func (mw *ManageWindow) GetRuleMeta(cmd string) datastructures.UiRulesItem {
+	cmdRules, ok := mw.ruleset[cmd]
 	if !ok {
-		return RuleMeta{}
+		return datastructures.UiRulesItem{}
 	}
-	return meta
+	return cmdRules
 }
 
-func (mw *ManageWindow) fetchRules(ruleType datastructures.RuleType) {
+func (mw *ManageWindow) fetchRules(ruleSource datastructures.RuleSource) error {
 	var ruleset datastructures.Ruleset
 	var err error
 
-	switch ruleType {
-	case datastructures.TYPE_DB:
+	switch ruleSource {
+	case datastructures.SOURCE_DB:
 		ruleset, err = mw.ipc.GetDBRules()
-	case datastructures.TYPE_SESSION:
+	case datastructures.SOURCE_SESSION:
 		ruleset, err = mw.ipc.GetClientRules()
 	default:
-		fmt.Fprintf(os.Stderr, "ManageWindow.fetchRules: no such ruletype: %d", ruleType)
-		return
+		return fmt.Errorf("ManageWindow.fetchRules: no such ruletype: %d", ruleSource)
 	}
 
+	log.Debugf("Ruleset: %s", ruleset)
+
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ManageWindow.fetchRules: failed to retrieve rules: %v", err)
-		return
+		return fmt.Errorf("ManageWindow.fetchRules: failed to retrieve rules: %v", err)
 	}
 
 	for _, rule := range ruleset {
-		meta := mw.GetRuleMeta(rule.Command)
+		cmdRules := mw.GetRuleMeta(rule.Command)
+
 		if rule.Destination == "" {
-			meta.IsAppRule = true
-			rule := RuleItem{
-				Id:        rule.Id,
-				User:      rule.User,
-				Duration:  rule.Duration,
-				Verdict:   rule.Verdict,
-				Timestamp: rule.Timestamp,
-				RuleType:  ruleType,
-			}
-			meta.Rules = append(meta.Rules, rule)
+			cmdRules.RuleType = datastructures.TYPE_APP
 		} else {
-			rule := RuleItem{
-				Id:          rule.Id,
-				Destination: rule.Destination,
-				Port:        rule.Port,
-				Proto:       rule.Proto,
-				User:        rule.User,
-				Duration:    rule.Duration,
-				Verdict:     rule.Verdict,
-				Timestamp:   rule.Timestamp,
-				RuleType:    ruleType,
-			}
-			meta.Rules = append(meta.Rules, rule)
+			cmdRules.RuleType = datastructures.TYPE_CONN
 		}
-		mw.ruleset[rule.Command] = meta
+
+		detailRule := datastructures.RuleDetail{RuleItem: rule}
+		detailRule.RuleSource = ruleSource
+		cmdRules.Rules = append(cmdRules.Rules, detailRule)
+
+		mw.ruleset[rule.Command] = cmdRules
 	}
 
+	return nil
 }
 
-func (mw *ManageWindow) fetchAllRules() {
-	mw.ruleset = make(map[string]RuleMeta)
-	mw.fetchRules(datastructures.TYPE_DB)
-	mw.fetchRules(datastructures.TYPE_SESSION)
+func (mw *ManageWindow) fetchAllRules() error {
+	mw.ruleset = make(datastructures.UiRuleset)
+
+	err := mw.fetchRules(datastructures.SOURCE_DB)
+	if err != nil {
+		return err
+	}
+
+	err = mw.fetchRules(datastructures.SOURCE_SESSION)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (mw *ManageWindow) LoadRules() {
-	mw.fetchAllRules()
+func (mw *ManageWindow) LoadRules() error {
+	if err := mw.fetchAllRules(); err != nil {
+		return fmt.Errorf("ManageWindow.LoadRules: %v", err)
+	}
 
-	for cmd, meta := range mw.ruleset {
-		if meta.IsAppRule {
-			row := []*gui.QStandardItem{
-				gui.NewQStandardItem2(cmd),
-				gui.NewQStandardItem(),
-				gui.NewQStandardItem(),
-				gui.NewQStandardItem(),
-				gui.NewQStandardItem2(meta.Rules[0].User),
-				gui.NewQStandardItem2(meta.Rules[0].Duration.String()),
-				gui.NewQStandardItem2(meta.Rules[0].Verdict.String()),
-			}
-			mw.treeviewRoot.AppendRow(row)
-		} else {
-			cmdRow := []*gui.QStandardItem{
-				gui.NewQStandardItem2(cmd),
-			}
-			mw.treeviewRoot.AppendRow(cmdRow)
-
-			for _, rule := range meta.Rules {
+	for cmd, rule := range mw.ruleset {
+		switch rule.RuleType {
+		case datastructures.TYPE_APP:
+			{
 				row := []*gui.QStandardItem{
+					gui.NewQStandardItem2(cmd),
 					gui.NewQStandardItem(),
-					gui.NewQStandardItem2(rule.Destination),
-					gui.NewQStandardItem2(rule.Port),
-					gui.NewQStandardItem2(rule.Proto.String()),
-					gui.NewQStandardItem2(rule.User),
-					gui.NewQStandardItem2(rule.Duration.String()),
-					gui.NewQStandardItem2(rule.Verdict.String()),
+					gui.NewQStandardItem(),
+					gui.NewQStandardItem(),
+					gui.NewQStandardItem2(rule.Rules[0].User),
+					gui.NewQStandardItem2(rule.Rules[0].Duration.String()),
+					gui.NewQStandardItem2(rule.Rules[0].Verdict.String()),
 				}
-				cmdRow[0].AppendRow(row)
+				mw.treeviewRoot.AppendRow(row)
+			}
+		case datastructures.TYPE_CONN:
+			{
+				cmdRow := []*gui.QStandardItem{
+					gui.NewQStandardItem2(cmd),
+				}
+				mw.treeviewRoot.AppendRow(cmdRow)
+
+				for _, cmdRule := range rule.Rules {
+					row := []*gui.QStandardItem{
+						gui.NewQStandardItem(),
+						gui.NewQStandardItem2(cmdRule.Destination),
+						gui.NewQStandardItem2(cmdRule.Port),
+						gui.NewQStandardItem2(cmdRule.Proto.String()),
+						gui.NewQStandardItem2(cmdRule.User),
+						gui.NewQStandardItem2(cmdRule.Duration.String()),
+						gui.NewQStandardItem2(cmdRule.Verdict.String()),
+					}
+					cmdRow[0].AppendRow(row)
+				}
 			}
 		}
 	}
+
+	return nil
 }

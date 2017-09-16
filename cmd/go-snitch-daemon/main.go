@@ -1,11 +1,10 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"flag"
 
 	"github.com/r3boot/go-snitch/lib/3rdparty/go-netfilter-queue"
 	"github.com/r3boot/go-snitch/lib/datastructures"
@@ -54,7 +53,7 @@ func init() {
 	packetQueue = nfq.GetPackets()
 
 	// Setup backend database + cache
-	ruleCache, err = rules.NewRuleCache(log, "./rules.db")
+	ruleCache, err = rules.NewRuleCache(log, *ruleDatabase)
 	if err != nil {
 		log.Fatalf("Failed to initialize ruleCache: %v", err)
 	}
@@ -101,6 +100,7 @@ func main() {
 		log.Infof("Received signal, exiting...")
 		engine.Disable()
 		ipt.CleanupRules()
+		ipt.RemoveResolvers()
 		signalsCompleted <- true
 	}()
 
@@ -160,7 +160,7 @@ func main() {
 			}
 
 			// Request a verdict via dbus
-			action, err := ipc.GetVerdict(request)
+			response, err := ipc.GetVerdict(request)
 			if err != nil {
 				log.Warningf("Error from ipc, dropping: %v (%s)", err, engine.DumpPacket(p.Packet))
 				engine.DumpPacket(p.Packet)
@@ -170,56 +170,18 @@ func main() {
 
 			// Check action to see what we need to do with the packet
 			log.Debugf("Setting verdict via ipc")
-			switch action {
-			case datastructures.DROP_APP_ALWAYS_USER,
-				datastructures.DROP_APP_ALWAYS_SYSTEM,
-				datastructures.DROP_CONN_ALWAYS_USER,
-				datastructures.DROP_CONN_ALWAYS_SYSTEM:
-				{
-					verdict = netfilter.NF_DROP
-					if err = ruleCache.AddRule(request, action); err != nil {
-						log.Warningf("Error from ruleCache: %v", err)
-					}
-				}
-			case datastructures.ACCEPT_APP_ALWAYS_USER,
-				datastructures.ACCEPT_APP_ALWAYS_SYSTEM,
-				datastructures.ACCEPT_CONN_ALWAYS_USER,
-				datastructures.ACCEPT_CONN_ALWAYS_SYSTEM:
-				{
-					verdict = netfilter.NF_ACCEPT
-					if err = ruleCache.AddRule(request, action); err != nil {
-						log.Warningf("Error from ruleCache: %v\n", err)
-					}
-				}
-			case datastructures.DROP_CONN_ONCE_USER,
-				datastructures.DROP_CONN_SESSION_USER,
-				datastructures.DROP_CONN_ONCE_SYSTEM,
-				datastructures.DROP_CONN_SESSION_SYSTEM,
-				datastructures.DROP_APP_ONCE_USER,
-				datastructures.DROP_APP_SESSION_USER,
-				datastructures.DROP_APP_ONCE_SYSTEM,
-				datastructures.DROP_APP_SESSION_SYSTEM:
-				{
-					verdict = netfilter.NF_DROP
-				}
-			case datastructures.ACCEPT_CONN_ONCE_USER,
-				datastructures.ACCEPT_CONN_SESSION_USER,
-				datastructures.ACCEPT_CONN_ONCE_SYSTEM,
-				datastructures.ACCEPT_CONN_SESSION_SYSTEM,
-				datastructures.ACCEPT_APP_ONCE_USER,
-				datastructures.ACCEPT_APP_SESSION_USER,
-				datastructures.ACCEPT_APP_ONCE_SYSTEM,
-				datastructures.ACCEPT_APP_SESSION_SYSTEM:
-				{
-					verdict = netfilter.NF_ACCEPT
-				}
-			default:
-				{
-					log.Warningf("Unknown action found in ipc response: %d (%s)\n", action, engine.DumpPacket(p.Packet))
+			if response.Scope == datastructures.SCOPE_FOREVER {
+				if err = ruleCache.AddRule(request, response); err != nil {
+					log.Warningf("Error from ruleCache: %v", err)
 				}
 			}
 
-			p.SetVerdict(verdict)
+			if response.Verdict == netfilter.NF_UNDEF {
+				log.Warningf("Unknown error: dropping packet %s", engine.DumpPacket(p.Packet))
+				p.SetVerdict(netfilter.NF_DROP)
+			} else {
+				p.SetVerdict(response.Verdict)
+			}
 		}
 	}
 }
